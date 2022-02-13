@@ -1,0 +1,279 @@
+unit STRLIST;
+
+(************************************************)
+(* STRLIST.PAS                                  *)
+(* Author:   Daniel Marschall                   *)
+(* Revision: 2020-09-11                         *)
+(* License:  Apache 2.0                         *)
+(* This file contains:                          *)
+(* - StringList implementation for Turbo Pascal *)
+(************************************************)
+
+interface
+
+type
+  PStringList = ^TStringList;
+  TStringList = record
+    init: boolean;
+    element: string;
+    next: PStringList;
+  end;
+
+procedure InitList(var list: PStringList);
+procedure FreeList(list: PStringList);
+function ListContains(list: PStringList; val: string): boolean;
+procedure ListClear(list: PStringList);
+procedure ListAppend(list: PStringList; str: string);
+function ListCount(list: PStringList): integer;
+procedure ListDeleteElement(list: PStringlist; idx: integer);
+function ListGetElement(list: PStringList; idx: integer): string;
+procedure ListSetElement(list: PStringList; idx: integer; value: string);
+procedure ListInsert(list: PStringlist; str: string; idx: integer);
+procedure ListSwapElement(list: PStringList; i, j: integer);
+procedure SplitStrToList(str: string; list: PStringList; separator: string);
+procedure OIDtoArcList(oid: string; list: PStringList);
+procedure ListBubbleSortNumericString(list: PStringList);
+
+implementation
+
+uses
+  VtsFuncs;
+
+procedure InitList(var list: PStringList);
+begin
+  GetMem(list, SizeOf(TStringList));
+  list^.init := false;
+  list^.element := '';
+  list^.next := nil;
+end;
+
+procedure FreeList(list: PStringList);
+begin
+  if list^.next <> nil then
+    FreeMem(list^.next, SizeOf(TStringList));
+  FreeMem(list, SizeOf(TStringList));
+end;
+
+function ListContains(list: PStringList; val: string): boolean;
+var
+  i: integer;
+begin
+  ListContains := false;
+  for i := 0 to ListCount(list)-1 do
+  begin
+    if ListGetElement(list, i) = val then
+    begin
+      ListContains := true;
+      break;
+    end;
+  end;
+end;
+
+procedure ListClear(list: PStringList);
+begin
+  while ListCount(list) > 0 do
+  begin
+    ListDeleteElement(list, 0);
+  end;
+end;
+
+procedure ListAppend(list: PStringList; str: string);
+var
+  new: PStringList;
+  tmp: PStringList;
+begin
+  if not list^.init then
+  begin
+   list^.element := str;
+   list^.init := true;
+  end
+  else
+  begin
+    GetMem(new, sizeof(TStringList));
+    new^.element := str;
+    new^.next := nil;
+    new^.init := true;
+
+    tmp := list;
+    while tmp^.next <> nil do
+    begin
+      tmp := tmp^.next;
+    end;
+
+    tmp^.next := new;
+  end;
+end;
+
+function ListCount(list: PStringList): integer;
+var
+  cnt: integer;
+  tmp: PStringList;
+begin
+  tmp := list;
+  cnt := 0;
+
+  if tmp^.init then
+  begin
+    repeat
+      Inc(cnt);
+      tmp := tmp^.next;
+    until tmp = nil;
+  end;
+
+  ListCount := cnt;
+end;
+
+procedure ListDeleteElement(list: PStringlist; idx: integer);
+var
+  tmp, tmp2, prev: PStringList;
+  i: integer;
+begin
+  if idx < 0 then exit;
+  if idx > ListCount(list)-1 then exit;
+
+  tmp := list;
+  prev := nil;
+  i := 0;
+  while i < idx do
+  begin
+    prev := tmp;
+    tmp := tmp^.next;
+    inc(i);
+  end;
+  if prev = nil then
+  begin
+    if tmp^.next = nil then
+    begin
+      tmp^.init := false;
+    end
+    else
+    begin
+      tmp^.init := true;
+      tmp^.element := tmp^.next^.element;
+      tmp2 := tmp^.next;
+      tmp^.next := tmp^.next^.next;
+      FreeMem(tmp2, SizeOf(TStringList));
+    end;
+  end
+  else
+  begin
+    prev^.next := tmp^.next;
+    FreeMem(tmp, SizeOf(TStringList));
+  end;
+end;
+
+function ListGetElement(list: PStringList; idx: integer): string;
+var
+  tmp: PStringList;
+  i: integer;
+begin
+  if idx < 0 then exit;
+  if idx > ListCount(list)-1 then exit;
+
+  tmp := list;
+  i := 0;
+  while i < idx do
+  begin
+    tmp := tmp^.next;
+    inc(i);
+  end;
+
+  ListGetElement := tmp^.element;
+end;
+
+procedure ListSetElement(list: PStringList; idx: integer; value: string);
+var
+  tmp: PStringList;
+  i: integer;
+begin
+  if idx < 0 then exit;
+  if idx > ListCount(list)-1 then exit;
+
+  tmp := list;
+  i := 0;
+  while i < idx do
+  begin
+    tmp := tmp^.next;
+    inc(i);
+  end;
+
+  tmp^.element := value;
+end;
+
+procedure ListInsert(list: PStringlist; str: string; idx: integer);
+var
+  tmp, new: PStringList;
+  i: integer;
+begin
+  if idx < 0 then exit;
+  if idx > ListCount(list)-1 then exit;
+
+  tmp := list;
+  i := 0;
+  while i < idx do
+  begin
+    tmp := tmp^.next;
+    inc(i);
+  end;
+
+  GetMem(new, sizeof(TStringList));
+  new^.init := true;
+  new^.next := tmp^.next;
+  new^.element := tmp^.element;
+
+  tmp^.element := str;
+  tmp^.next := new;
+  tmp^.init := true;
+end;
+
+procedure ListSwapElement(list: PStringList; i, j: integer);
+var
+  a, b: string;
+begin
+  a := ListGetElement(list, i);
+  b := ListGetElement(list, j);
+  ListSetElement(list, i, b);
+  ListSetElement(list, j, a);
+end;
+
+procedure SplitStrToList(str: string; list: PStringList; separator: string);
+var
+  p: integer;
+begin
+  str := str + separator;
+  repeat
+    p := Pos(separator, str);
+    ListAppend(list, Copy(str, 1, p-1));
+    str := copy(str, p+Length(separator), Length(str)-p);
+  until str = '';
+end;
+
+procedure OIDtoArcList(oid: string; list: PStringList);
+begin
+  SplitStrToList(oid, list, '.');
+end;
+
+procedure ListBubbleSortNumericString(list: PStringList);
+var
+  n, i: integer;
+  a, b: string;
+begin
+  n := ListCount(list);
+  while n>1 do
+  begin
+    i := 0;
+    while i<n-1 do
+    begin
+      a := ListGetElement(list, i);
+      b := ListGetElement(list, i+1);
+      if CompareNumericString(a, b) > 0 then
+      begin
+        ListSwapElement(list, i, i+1);
+      end;
+      Inc(i);
+    end;
+    Dec(n);
+  end;
+end;
+
+end.
