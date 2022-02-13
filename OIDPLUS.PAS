@@ -212,7 +212,7 @@ begin
           if sInput = '' then
           begin
             (* Empty input = Delete ASN.1 ID *)
-            ListDeleteElement(oid^.ASNIDs, res);
+            ListDeleteElementByIndex(oid^.ASNIDs, res);
             break;
           end
           else if not ASN1IDValid(sInput) then
@@ -410,8 +410,6 @@ var
   i: integer;
   parentOID: POID;
   filenameSelf, filenameParent: string;
-  fileIdToDelete: string;
-  sTmp: string;
 begin
   (* Remove all children and their files recursively *)
   DeleteChildrenRecursive(selfOID);
@@ -420,21 +418,14 @@ begin
   filenameParent := FileIdPart(selfOID^.Parent) + '.OID';
   CreateOidDef(parentOID);
   _ReadOidFile(filenameParent, parentOID);
-  for i := 0 to ListCount(parentOID^.SubIds)-1 do
+  if ListDeleteElementByValue(parentOID^.SubIds, selfOID^.FileId + selfOID^.DotNotation) then
   begin
-    sTmp := ListGetElement(parentOID^.SubIds, i);
-    if FileIdPart(sTmp) = selfOID^.FileId then
-    begin
-      ListDeleteElement(parentOID^.SubIds, i);
-      _WriteOidFile(filenameParent, parentOID);
-      break;
-    end;
+    _WriteOidFile(filenameParent, parentOID);
   end;
   FreeOidDef(parentOID);
 
   (* Delete own file *)
-  fileIdToDelete := selfOID^.FileId;
-  filenameSelf := fileIdToDelete+'.OID';
+  filenameSelf := selfOID^.FileId + '.OID';
   DeleteFile(filenameSelf);
 end;
 
@@ -444,7 +435,7 @@ var
 begin
   repeat
     ShowMessage('Are you sure you want to delete this OID? (Y/N)', 'DELETE OID', true);
-    DrawStatusBar('Y = Yes; N = No');
+    DrawStatusBar('Y=Yes, N=No');
 
     sc := ReadKey;
     if sc = #0 then
@@ -458,14 +449,29 @@ begin
     begin
       _DeleteConfirmation := true;
       break;
-    end;
-
-    if UpCase(sc) = 'N' then
+    end
+    else if UpCase(sc) = 'N' then
     begin
       _DeleteConfirmation := false;
       break;
     end;
   until false;
+end;
+
+procedure _DrawOidTitleBar(filename: string; oid: POID);
+begin
+  if oid^.DotNotation = '' then
+    DrawTitleBar('OID ROOT')
+  else
+    DrawTitleBar('OID ' + oid^.DotNotation);
+
+  (* Put loaded filename into the title bar *)
+  GotoXY(ScreenWidth-Length(filename)+1,1);
+  TextBackground(White);
+  TextColor(Black);
+  WriteLn(filename);
+  TextBackground(Black);
+  TextColor(White);
 end;
 
 procedure DisplayOIDFile(filename: string);
@@ -488,17 +494,7 @@ begin
     (* Print OID information *)
 
     ClrScr;
-
-    if oid^.DotNotation = '' then
-      DrawTitleBar('OID ROOT')
-    else
-      DrawTitleBar('OID ' + oid^.DotNotation);
-    GotoXY(ScreenWidth-Length(filename)+1,1);
-    TextBackground(White);
-    TextColor(Black);
-    WriteLn(filename);
-    TextBackground(Black);
-    TextColor(White);
+    _DrawOidTitleBar(filename, oid);
     DrawStatusBar(DEFAULT_STATUSBAR);
     GotoXY(1,2);
 
@@ -549,8 +545,8 @@ begin
 
     (* Now prepare the menu entries *)
 
-    CreateList(subsel);
-    CreateList(subfiles);
+    CreateList(subsel);   (* Contains the human readable OID name *)
+    CreateList(subfiles); (* Contains the file name               *)
 
     if oid^.Parent = '' then
     begin
@@ -670,9 +666,9 @@ begin
                       '- 0 (itu-t)' + #13#10 +
                       '- 1 (iso)' + #13#10 +
                       '- 2 (joint-iso-itu-t)';
-  oid^.FileId      := '00000000';
+  oid^.FileId      := ZeroPad(0, 8);
   oid^.DotNotation := '';
-  oid^.Parent      := '00000000';
+  oid^.Parent      := ZeroPad(0, 8);
   _WriteOidFile(filename, oid);
   FreeOidDef(oid);
 end;

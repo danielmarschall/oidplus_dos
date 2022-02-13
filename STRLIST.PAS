@@ -25,7 +25,8 @@ function ListContains(list: PStringList; val: string): boolean;
 procedure ListClear(list: PStringList);
 function ListAppend(list: PStringList; str: string): integer;
 function ListCount(list: PStringList): integer;
-procedure ListDeleteElement(list: PStringlist; idx: integer);
+function ListDeleteElementByIndex(list: PStringlist; idx: integer): boolean;
+function ListDeleteElementByValue(list: PStringlist; val: string): boolean;
 function ListGetElement(list: PStringList; idx: integer): string;
 procedure ListSetElement(list: PStringList; idx: integer; value: string);
 procedure ListInsert(list: PStringlist; str: string; idx: integer);
@@ -73,7 +74,7 @@ procedure ListClear(list: PStringList);
 begin
   while ListCount(list) > 0 do
   begin
-    ListDeleteElement(list, 0);
+    ListDeleteElementByIndex(list, 0);
   end;
 end;
 
@@ -129,11 +130,12 @@ begin
   ListCount := cnt;
 end;
 
-procedure ListDeleteElement(list: PStringlist; idx: integer);
+function ListDeleteElementByIndex(list: PStringlist; idx: integer): boolean;
 var
   tmp, tmp2, prev: PStringList;
   i: integer;
 begin
+  ListDeleteElementByIndex := false;
   if idx < 0 then exit;
   if idx > ListCount(list)-1 then exit;
 
@@ -165,6 +167,23 @@ begin
   begin
     prev^.next := tmp^.next;
     FreeMem(tmp, SizeOf(TStringList));
+  end;
+
+  ListDeleteElementByIndex := true;
+end;
+
+function ListDeleteElementByValue(list: PStringlist; val: string): boolean;
+var
+  i: integer;
+begin
+  ListDeleteElementByValue := false;
+  for i := 0 to ListCount(list)-1 do
+  begin
+    if ListGetElement(list, i) = val then
+    begin
+      ListDeleteElementByValue := ListDeleteElementByIndex(list, i);
+      exit;
+    end;
   end;
 end;
 
