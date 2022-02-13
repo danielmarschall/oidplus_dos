@@ -3,7 +3,7 @@ unit STRLIST;
 (************************************************)
 (* STRLIST.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2020-09-11                         *)
+(* Revision: 2022-02-14                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - StringList implementation for Turbo Pascal *)
@@ -19,11 +19,11 @@ type
     next: PStringList;
   end;
 
-procedure InitList(var list: PStringList);
+procedure CreateList(var list: PStringList);
 procedure FreeList(list: PStringList);
 function ListContains(list: PStringList; val: string): boolean;
 procedure ListClear(list: PStringList);
-procedure ListAppend(list: PStringList; str: string);
+function ListAppend(list: PStringList; str: string): integer;
 function ListCount(list: PStringList): integer;
 procedure ListDeleteElement(list: PStringlist; idx: integer);
 function ListGetElement(list: PStringList; idx: integer): string;
@@ -39,7 +39,7 @@ implementation
 uses
   VtsFuncs;
 
-procedure InitList(var list: PStringList);
+procedure CreateList(var list: PStringList);
 begin
   GetMem(list, SizeOf(TStringList));
   list^.init := false;
@@ -77,11 +77,13 @@ begin
   end;
 end;
 
-procedure ListAppend(list: PStringList; str: string);
+function ListAppend(list: PStringList; str: string): integer;
 var
   new: PStringList;
   tmp: PStringList;
+  cnt: integer;
 begin
+  cnt := 0;
   if not list^.init then
   begin
    list^.element := str;
@@ -89,6 +91,7 @@ begin
   end
   else
   begin
+    Inc(cnt);
     GetMem(new, sizeof(TStringList));
     new^.element := str;
     new^.next := nil;
@@ -98,10 +101,13 @@ begin
     while tmp^.next <> nil do
     begin
       tmp := tmp^.next;
+      Inc(cnt);
     end;
 
     tmp^.next := new;
   end;
+
+  ListAppend := cnt; (* Return the index where the new element was put *)
 end;
 
 function ListCount(list: PStringList): integer;

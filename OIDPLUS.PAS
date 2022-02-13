@@ -13,13 +13,17 @@ uses
   Dos, Crt, StrList, VtsFuncs, VtsCui, OidFile, OidUtils;
 
 const
-  VERSIONINFO = 'Revision: 2022-02-14';
-  DEFAULT_STATUSBAR = '(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.';
+  VERSIONINFO            = 'Revision: 2022-02-14';
+  DEFAULT_STATUSBAR      = '(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.';
   DISKIO_SOUND_DEBUGGING = false;
-  DISKIO_SOUND_DELAY = 500;
-  ASNEDIT_LINES = 10;
-  DESCEDIT_LINES = 10;
-  DESCEDIT_PADDING = 3;
+  DISKIO_SOUND_DELAY     = 500;
+  ASNEDIT_LINES          = 10;
+  DESCEDIT_LINES         = 10;
+  DESCEDIT_PADDING       = 3;
+  ACTIONMENU_SIZE        = 5;
+  MAINMENU_WIDTH         = 15;
+  MAINMENU_HEIGHT        = 3;
+  MAINMENU_ALLOW_ESC     = false;
 
 procedure _WriteOidFile(filename: string; oid: POid);
 begin
@@ -67,24 +71,24 @@ end;
 
 function _ShowASNIds(subfile: string): string;
 var
-  coid: TOID;
+  childOID: POID;
   j, jmax: integer;
   sTmp: string;
 begin
   sTmp := '';
-  InitOidDef(@coid);
-  _ReadOidFile(subfile, @coid);
-  jmax := ListCount(coid.ASNIds)-1;
+  CreateOidDef(childOID);
+  _ReadOidFile(subfile, childOID);
+  jmax := ListCount(childOID^.ASNIds)-1;
   for j := 0 to jmax do
   begin
     if j = 0 then sTmp := sTmp + ' (';
-    sTmp := sTmp + ListGetElement(coid.ASNIds, j);
+    sTmp := sTmp + ListGetElement(childOID^.ASNIds, j);
     if j = jmax then
       sTmp := sTmp + ')'
     else
       sTmp := sTmp + ', ';
   end;
-  FreeOidDef(@coid);
+  FreeOidDef(childOID);
   _ShowASNIds := sTmp;
 end;
 
@@ -112,19 +116,20 @@ var
   x, y, w, h: integer;
   res: integer;
   sInput: string;
+  menuIdNew, menuIdSave, menuIdExit: integer;
 begin
   AsnEditor := false;
 
   repeat
-    InitList(asnList);
+    CreateList(asnList);
 
     for i := 0 to ListCount(oid^.ASNIds)-1 do
     begin
       ListAppend(asnList, ListGetElement(oid^.ASNIDs, i));
     end;
-    ListAppend(asnList, '<NEW>');
-    ListAppend(asnList, '<SAVE>');
-    ListAppend(asnList, '<CANCEL>');
+    menuIdNew  := ListAppend(asnList, '<NEW>');
+    menuIdSave := ListAppend(asnList, '<SAVE>');
+    menuIdExit := ListAppend(asnList, '<CANCEL>');
 
     DrawStatusBar(DEFAULT_STATUSBAR);
     x := SINGLE_LINE_BOX_PADDING;
@@ -135,6 +140,7 @@ begin
                              asnList, true,
                              'EDIT ASN.1 IDENTIFIERS',
                              2);
+    FreeList(asnList);
 
     (* Change double-border to thin-border *)
     DrawThinBorder(x-1, y-1, w+2, h+2);
@@ -145,7 +151,7 @@ begin
     begin
       exit;
     end
-    else if res = ListCount(oid^.ASNIDs) then
+    else if res = menuIdNew then
     begin
       (* "NEW" item was selected *)
       sInput := '';
@@ -178,13 +184,13 @@ begin
         else break;
       until false;
     end
-    else if res = ListCount(oid^.ASNIDs)+1 then
+    else if res = menuIdSave then
     begin
       (* "SAVE" item was selected *)
       AsnEditor := true;
       Exit;
     end
-    else if res = ListCount(oid^.ASNIDs)+2 then
+    else if res = menuIdExit then
     begin
       (* "CANCEL" item was selected *)
       AsnEditor := false;
@@ -261,7 +267,7 @@ var
   sId: string;
 begin
   (* Put all found files into a list *)
-  InitList(list);
+  CreateList(list);
   FindFirst('????????.OID', Archive, DirInfo);
   while DosError = 0 do
   begin
@@ -294,8 +300,7 @@ begin
   for i := 0 to ListCount(parentOID^.SubIds)-1 do
   begin
     sTmp := ListGetElement(parentOID^.SubIds, i);
-    Delete(sTmp, 1, 8);
-    if sTmp = searchDotNotation then
+    if DotNotationPart(sTmp) = searchDotNotation then
     begin
       NumIdAlreadyExisting := true;
       exit;
@@ -361,40 +366,40 @@ end;
 function NewOidEditor(oid: POID): boolean;
 var
   newfilename: string;
-  newoid: TOID;
+  newOID: POID;
 begin
   NewOidEditor := false;
 
-  InitOidDef(@newoid);
-  newoid.FileId := NextPossibleFileID;
-  newoid.Parent := oid^.FileId + oid^.DotNotation;
-  if NumIdEditor(@newoid, oid) and
-     AsnEditor(@newoid) and
-     DescEditor(@newoid) then
+  CreateOidDef(newOID);
+  newOID^.FileId := NextPossibleFileID;
+  newOID^.Parent := oid^.FileId + oid^.DotNotation;
+  if NumIdEditor(newOID, oid) and
+     AsnEditor(newOID) and
+     DescEditor(newOID) then
   begin
-    newfilename := newoid.FileId + '.OID';
-    _WriteOidFile(newfilename, @newoid);
+    newfilename := newOID^.FileId + '.OID';
+    _WriteOidFile(newfilename, newOID);
 
     (* Add link to original file and enable the saving of it *)
-    ListAppend(oid^.SubIds, newoid.FileId + newoid.DotNotation);
+    ListAppend(oid^.SubIds, newOID^.FileId + newOID^.DotNotation);
     NewOidEditor := true; (* request caller to save @oid *)
   end;
-  FreeOidDef(@newoid);
+  FreeOidDef(newOID);
 end;
 
 procedure DeleteChildrenRecursive(oid: POID);
 var
   i: integer;
-  childOID: TOID;
+  childOID: POID;
   filenameChild: string;
 begin
   for i := 0 to ListCount(oid^.SubIds)-1 do
   begin
-    filenameChild := Copy(ListGetElement(oid^.SubIds, i), 1, 8) + '.OID';
-    InitOidDef(@childOID);
-    _ReadOidFile(filenameChild, @childOID);
-    DeleteChildrenRecursive(@childOID);
-    FreeOidDef(@childOID);
+    filenameChild := FileIdPart(ListGetElement(oid^.SubIds, i)) + '.OID';
+    CreateOidDef(childOID);
+    _ReadOidFile(filenameChild, childOID);
+    DeleteChildrenRecursive(childOID);
+    FreeOidDef(childOID);
     DeleteFile(filenameChild);
   end;
   ListClear(oid^.SubIds);
@@ -403,27 +408,29 @@ end;
 procedure DeleteOidRecursive(selfOID: POID);
 var
   i: integer;
-  parentOID: TOID;
+  parentOID: POID;
   filenameSelf, filenameParent: string;
   fileIdToDelete: string;
+  sTmp: string;
 begin
   (* Remove all children and their files recursively *)
   DeleteChildrenRecursive(selfOID);
 
   (* Remove forward reference in parent OID *)
-  filenameParent := Copy(selfOID^.Parent, 1, 8)+'.OID';
-  InitOidDef(@parentOID);
-  _ReadOidFile(filenameParent, @parentOID);
-  for i := 0 to ListCount(parentOID.SubIds)-1 do
+  filenameParent := FileIdPart(selfOID^.Parent) + '.OID';
+  CreateOidDef(parentOID);
+  _ReadOidFile(filenameParent, parentOID);
+  for i := 0 to ListCount(parentOID^.SubIds)-1 do
   begin
-    if Copy(ListGetElement(parentOID.SubIds, i), 1, 8) = selfOID^.FileId then
+    sTmp := ListGetElement(parentOID^.SubIds, i);
+    if FileIdPart(sTmp) = selfOID^.FileId then
     begin
-      ListDeleteElement(parentOID.SubIds, i);
-      _WriteOidFile(filenameParent, @parentOID);
+      ListDeleteElement(parentOID^.SubIds, i);
+      _WriteOidFile(filenameParent, parentOID);
       break;
     end;
   end;
-  FreeOidDef(@parentOID);
+  FreeOidDef(parentOID);
 
   (* Delete own file *)
   fileIdToDelete := selfOID^.FileId;
@@ -431,39 +438,61 @@ begin
   DeleteFile(filenameSelf);
 end;
 
+function _DeleteConfirmation: boolean;
+var
+  sc: Char;
+begin
+  repeat
+    ShowMessage('Are you sure you want to delete this OID? (Y/N)', 'DELETE OID', true);
+    DrawStatusBar('Y = Yes; N = No');
+
+    sc := ReadKey;
+    if sc = #0 then
+    begin
+      (* Extended key. Nothing we care about. *)
+      ReadKey;
+      continue;
+    end;
+
+    if UpCase(sc) = 'Y' then
+    begin
+      _DeleteConfirmation := true;
+      break;
+    end;
+
+    if UpCase(sc) = 'N' then
+    begin
+      _DeleteConfirmation := false;
+      break;
+    end;
+  until false;
+end;
+
 procedure DisplayOIDFile(filename: string);
-const
-  ID_EXIT     = '?EXIT';
-  ID_ASNEDIT  = '?ASN1';
-  ID_DESCEDIT = '?DESC';
-  ID_ADDCHILD = '?ADDC';
-  ID_DELETE   = '?DELE';
-  NAVBAR_SIZE = 5;
 var
   isRoot: boolean;
-  f: Text;
-  line, cmd: string;
-  oid: TOID;
+  oid: POID;
   i, menuX, menuY: integer;
   linesLeft, linesRequired: integer;
   sTmp, subfile: string;
-  sAsn: string;
   subsel, subfiles: PStringList;
   subselres: integer;
-  sTmp1: string;
+  exitRequest: boolean;
+  menuIdExit, menuIdAsnEdit, menuIdDescEdit, menuIdAdd, menuIdDelete: integer;
 begin
+  exitRequest := false;
   repeat
-    InitOidDef(@oid);
-    _ReadOidFile(filename, @oid);
+    CreateOidDef(oid);
+    _ReadOidFile(filename, oid);
 
     (* Print OID information *)
 
     ClrScr;
 
-    if oid.DotNotation = '' then
+    if oid^.DotNotation = '' then
       DrawTitleBar('OID ROOT')
     else
-      DrawTitleBar('OID ' + oid.DotNotation);
+      DrawTitleBar('OID ' + oid^.DotNotation);
     GotoXY(ScreenWidth-Length(filename)+1,1);
     TextBackground(White);
     TextColor(Black);
@@ -473,36 +502,36 @@ begin
     DrawStatusBar(DEFAULT_STATUSBAR);
     GotoXY(1,2);
 
-    if oid.DotNotation <> '' then
+    if oid^.DotNotation <> '' then
     begin
       WriteLn('Dot-Notation:');
-      WriteLn(oid.DotNotation);
+      WriteLn(oid^.DotNotation);
       WriteLn('');
     end;
 
-    if Trim(oid.Description) <> '' then
+    if Trim(oid^.Description) <> '' then
     begin
       WriteLn('Description:');
-      WriteLn(oid.Description);
+      WriteLn(oid^.Description);
       WriteLn('');
     end;
 
     menuX := WhereX + 1;
-    menuY := ScreenHeight - NAVBAR_SIZE - 1;
+    menuY := ScreenHeight - ACTIONMENU_SIZE - 1;
 
-    if ListCount(oid.ASNIDs) > 0 then
+    if ListCount(oid^.ASNIDs) > 0 then
     begin
       linesLeft := menuY - WhereY - 1;
-      linesRequired := 1 + ListCount(oid.ASNIds);
+      linesRequired := 1 + ListCount(oid^.ASNIds);
 
       if LinesLeft < LinesRequired then
       begin
         (* Compact display of ASN.1 identifiers *)
         Write('ASN.1-Identifiers: ');
-        for i := 0 to ListCount(oid.ASNIds)-1 do
+        for i := 0 to ListCount(oid^.ASNIds)-1 do
         begin
           if i > 0 then Write(', ');
-          Write(ListGetElement(oid.ASNIds, i));
+          Write(ListGetElement(oid^.ASNIds, i));
         end;
         WriteLn('');
       end
@@ -510,9 +539,9 @@ begin
       begin
         (* Long display of ASN.1 identifiers *)
         WriteLn('ASN.1-Identifiers:');
-        for i := 0 to ListCount(oid.ASNIds)-1 do
+        for i := 0 to ListCount(oid^.ASNIds)-1 do
         begin
-          WriteLn('- '+ListGetElement(oid.ASNIds, i));
+          WriteLn('- '+ListGetElement(oid^.ASNIds, i));
         end;
         WriteLn('');
       end;
@@ -520,69 +549,66 @@ begin
 
     (* Now prepare the menu entries *)
 
-    InitList(subsel);
-    InitList(subfiles);
+    CreateList(subsel);
+    CreateList(subfiles);
 
-    sTmp := oid.Parent;
-    if sTmp = '' then
+    if oid^.Parent = '' then
     begin
       isRoot := true;
     end
     else
     begin
-      Delete(sTmp, 1, 8);
-      isRoot := sTmp = oid.DotNotation;
+      isRoot := DotNotationPart(oid^.Parent) = oid^.DotNotation;
     end;
 
-    if (oid.Parent <> '') and not isRoot then
+    if (oid^.Parent <> '') and not isRoot then
     begin
-      sTmp := oid.Parent;
-      subfile := Copy(sTmp, 1, 8)+'.OID';
-      Delete(sTmp, 1, 8);
-      sTmp := sTmp + _ShowASNIds(subfile);
-      ListAppend(subsel, 'Go to parent ' + sTmp);
+      sTmp := oid^.Parent;
+      subfile := FileIdPart(sTmp) + '.OID';
+      ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + _ShowASNIds(subfile));
       ListAppend(subfiles, subfile);
     end;
 
     if isRoot then
     begin
-      ListAppend(subsel, 'Back to main menu');
-      ListAppend(subfiles, ID_EXIT);
-    end;
+      menuIdExit := ListAppend(subsel, 'Back to main menu');
+      ListAppend(subfiles, '');
+    end
+    else menuIdExit := -99;
 
-    for i := 0 to ListCount(oid.SubIds)-1 do
+    for i := 0 to ListCount(oid^.SubIds)-1 do
     begin
-      sTmp := ListGetElement(oid.SubIds, i);
-      subfile := Copy(sTmp, 1, 8)+'.OID';
-      Delete(sTmp, 1, 8);
-      sTmp := sTmp + _ShowASNIds(subfile);
-      ListAppend(subsel, 'Go to child  ' + sTmp);
+      sTmp := ListGetElement(oid^.SubIds, i);
+      subfile := FileIdPart(sTmp) + '.OID';
+      ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + _ShowASNIds(subfile));
       ListAppend(subfiles, subfile);
     end;
 
-    if oid.DotNotation <> '' then
+    if oid^.DotNotation <> '' then
     begin
-      ListAppend(subsel, 'Edit ASN.1 identifiers');
-      ListAppend(subfiles, ID_ASNEDIT);
-    end;
+      menuIdAsnEdit := ListAppend(subsel, 'Edit ASN.1 identifiers');
+      ListAppend(subfiles, '');
+    end
+    else menuIdAsnEdit := -99;
 
-    ListAppend(subsel, 'Edit description');
-    ListAppend(subfiles, ID_DESCEDIT);
+    menuIdDescEdit := ListAppend(subsel, 'Edit description');
+    ListAppend(subfiles, '');
 
-    ListAppend(subsel, 'Add child');
-    ListAppend(subfiles, ID_ADDCHILD);
+    menuIdAdd := ListAppend(subsel, 'Add child');
+    ListAppend(subfiles, '');
 
     if not isRoot then
     begin
-      ListAppend(subsel, 'Delete OID');
-      ListAppend(subfiles, ID_DELETE);
-    end;
+      menuIdDelete := ListAppend(subsel, 'Delete OID');
+      ListAppend(subfiles, '');
+    end
+    else menuIdDelete := -99;
 
     (* Show menu *)
 
     subselres := DrawSelectionList(menuX, menuY,
                                    ScreenWidth-2,
-                                   NAVBAR_SIZE,
+                                   ACTIONMENU_SIZE,
                                    subsel,
                                    true,
                                    'SELECT ACTION',
@@ -592,83 +618,79 @@ begin
 
     if subselres = -1 then
     begin
-      exit;
+      exitRequest := true;
+    end
+    else if subselres = menuIdAsnEdit then
+    begin
+      if AsnEditor(oid) then
+        _WriteOidFile(filename, oid);
+    end
+    else if subselres = menuIdDescEdit then
+    begin
+      if DescEditor(oid) then
+        _WriteOidFile(filename, oid);
+    end
+    else if subselres = menuIdAdd then
+    begin
+      if NewOidEditor(oid) then
+        _WriteOidFile(filename, oid);
+    end
+    else if subselres = menuIdDelete then
+    begin
+      if _DeleteConfirmation then
+      begin
+        filename := FileIdPart(oid^.Parent) + '.OID';
+        DeleteOidRecursive(oid);
+      end;
+    end
+    else if subselres = menuIdExit then
+    begin
+      exitRequest := true;
     end
     else
     begin
-      sTmp1 := ListGetElement(subfiles, subselres);
-      if sTmp1 = ID_ASNEDIT then
-      begin
-        if AsnEditor(@oid) then
-          _WriteOidFile(filename, @oid);
-      end
-      else if sTmp1 = ID_DESCEDIT then
-      begin
-        if DescEditor(@oid) then
-          _WriteOidFile(filename, @oid);
-      end
-      else if sTmp1 = ID_ADDCHILD then
-      begin
-        if NewOidEditor(@oid) then
-        begin
-          _WriteOidFile(filename, @oid);
-        end;
-      end
-      else if sTmp1 = ID_DELETE then
-      begin
-        ShowMessage('Are you sure you want to delete this OID?', 'DELETE OID', true);
-        DrawStatusBar('Y = Yes; any other key = No');
-        if UpCase(ReadKey) = 'Y' then
-        begin
-          filename := Copy(oid.Parent,1,8)+'.OID';
-          DeleteOidRecursive(@oid);
-        end;
-      end
-      else if sTmp1 = ID_EXIT then
-      begin
-        exit;
-      end
-      else
-      begin
-        filename := sTmp1;
-      end;
+      (* Normal OID *)
+      filename := ListGetElement(subfiles, subselres);
     end;
     FreeList(subsel);
     FreeList(subfiles);
 
-    FreeOidDef(@oid);
-  until false;
+    FreeOidDef(oid);
+  until exitRequest;
 end;
 
 procedure CreateInitOIDFile(filename: string);
 var
-  oid: TOID;
+  oid: POID;
 begin
-  InitOidDef(@oid);
-  oid.Description := 'This is the root of the OID tree.' +#13#10 +
-                     #13#10 +
-                     'Valid subsequent arcs are per definition:' + #13#10 +
-                     '- 0 (itu-t)' + #13#10 +
-                     '- 1 (iso)' + #13#10 +
-                     '- 2 (joint-iso-itu-t)';
-  oid.FileId      := '00000000';
-  oid.DotNotation := '';
-  oid.Parent      := '00000000';
-  _WriteOidFile(filename, @oid);
-  FreeOidDef(@oid);
+  CreateOidDef(oid);
+  oid^.Description := 'This is the root of the OID tree.' +#13#10 +
+                      #13#10 +
+                      'Valid subsequent arcs are per definition:' + #13#10 +
+                      '- 0 (itu-t)' + #13#10 +
+                      '- 1 (iso)' + #13#10 +
+                      '- 2 (joint-iso-itu-t)';
+  oid^.FileId      := '00000000';
+  oid^.DotNotation := '';
+  oid^.Parent      := '00000000';
+  _WriteOidFile(filename, oid);
+  FreeOidDef(oid);
 end;
 
 procedure OP_ManageOIDs;
+var
+  initFile: string;
 begin
   ClrScr;
   DrawTitleBar('Manage Object Identifiers');
   DrawStatusBar('');
 
-  if not FileExists('00000000.OID') then
+  initFile := ZeroPad(0, 8) + '.OID';
+  if not FileExists(initFile) then
   begin
-    CreateInitOIDFile('00000000.OID');
+    CreateInitOIDFile(initFile);
   end;
-  DisplayOIDFile('00000000.OID');
+  DisplayOIDFile(initFile);
 end;
 
 procedure OP_ManageRAs;
@@ -678,8 +700,6 @@ begin
   DrawStatusBar('');
 
   (* TODO: Implement "Manage RAs" feature *)
-  ShowMessage('This feature has not yet been implemented!', 'NOTICE', true);
-  _Pause;
 end;
 
 procedure OP_ReturnToMSDOS;
@@ -688,12 +708,10 @@ begin
 end;
 
 procedure OP_MainMenu;
-const
-  MenuWidth = 15;
-  MenuHeight = 3;
 var
   menu: PStringList;
   menuRes, menuLeft, menuTop: integer;
+  menuIdOID, menuIdRA, menuIdExit: integer;
 begin
   repeat
     ClrScr;
@@ -703,25 +721,28 @@ begin
     GoToXY(ScreenWidth-Length(VERSIONINFO), ScreenHeight-1);
     Write(VERSIONINFO);
 
-    InitList(menu);
-    ListAppend(menu, 'Manage OIDs');
-    ListAppend(menu, 'Manage RAs');
-    ListAppend(menu, 'Return to DOS');
-    menuLeft := round(ScreenWidth/2 -MenuWidth/2);
-    menuTop  := round(ScreenHeight/2-MenuHeight/2);
-    menuRes  := DrawSelectionList(menuLeft, menuTop, MenuWidth, MenuHeight, menu, true, 'MAIN MENU', 2);
+    CreateList(menu);
+
+    menuIdOID  := ListAppend(menu, 'Manage OIDs');
+    menuIdRA   := -99; (*ListAppend(menu, 'Manage RAs');*)
+    menuIdExit := ListAppend(menu, 'Return to DOS');
+
+    menuLeft := round(ScreenWidth/2 -MAINMENU_WIDTH/2);
+    menuTop  := round(ScreenHeight/2-MAINMENU_HEIGHT/2);
+    menuRes  := DrawSelectionList(menuLeft, menuTop,
+                                  MAINMENU_WIDTH, MAINMENU_HEIGHT,
+                                  menu, true, 'MAIN MENU', 2);
     FreeList(menu);
 
-    if menuRes = 0 then
+    if menuRes = menuIdOID then
     begin
       OP_ManageOIDs;
-    end;
-
-    if menuRes = 1 then
+    end
+    else if menuRes = menuIdRA then
     begin
       OP_ManageRAs;
     end;
-  until (menuRes = 2) or (menuRes = -1);
+  until (menuRes = menuIdExit) or (MAINMENU_ALLOW_ESC and (menuRes = -1));
 
   OP_ReturnToMSDOS;
 end;

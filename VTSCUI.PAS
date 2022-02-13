@@ -3,7 +3,7 @@ unit VTSCUI;
 (************************************************)
 (* VTSCUI.PAS                                   *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-12                         *)
+(* Revision: 2022-02-14                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - ViaThinkSoft CUI (Console User Interface)  *)
@@ -205,6 +205,7 @@ var
   itemIndex: integer;
   sc: char;
   iStartScope, iEndScope: integer;
+  sTmp: string;
 label
   doAgain;
 begin
@@ -300,7 +301,15 @@ doAgain:
     if i > ListCount(items)-1 then
       Write(FillRight('', ListWidth, ' '))
     else
-      Write(FillRight(ListGetElement(items, i), ListWidth, ' '));
+    begin
+      sTmp := ListGetElement(items, i);
+      if Length(sTmp) > ListWidth then
+      begin
+        (* Cut too long line *)
+        sTmp := Copy(sTmp, 1, ListWidth-3) + '...';
+      end;
+      Write(FillRight(sTmp, ListWidth, ' '));
+    end;
     TextColor(White);
     TextBackground(Black);
   end;

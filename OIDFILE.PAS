@@ -25,11 +25,15 @@ type
     Parent: string; (* First 8 chars are FileId, followed by Dot-Notation *)
   end;
 
-procedure InitOidDef(oid: POid);
+procedure CreateOidDef(var oid: POid);
 procedure FreeOidDef(oid: POid);
 procedure ClearOidDef(oid: POid);
 procedure WriteOidFile(filename: string; oid: POid);
 procedure ReadOidFile(filename: string; oid: POid);
+
+(* For the fields "SubIds" and "Parent" *)
+function FileIdPart(s: string): string;
+function DotNotationPart(s: string): string;
 
 implementation
 
@@ -39,26 +43,28 @@ uses
 const
   WANT_VERS = '2022';
 
-procedure InitOidDef(oid: POid);
+procedure CreateOidDef(var oid: POid);
 begin
+  GetMem(oid, SizeOf(TOID));
   oid^.FileId := '';
   oid^.DotNotation := '';
   oid^.Description := '';
   oid^.Parent := '';
-  InitList(oid^.ASNIds);
-  InitList(oid^.SubIds);
+  CreateList(oid^.ASNIds);
+  CreateList(oid^.SubIds);
 end;
 
 procedure FreeOidDef(oid: POid);
 begin
   FreeList(oid^.ASNIds);
   FreeList(oid^.SubIds);
+  FreeMem(oid, SizeOf(TOID));
 end;
 
 procedure ClearOidDef(oid: POid);
 begin
   FreeOidDef(oid);
-  InitOidDef(oid);
+  CreateOidDef(oid);
 end;
 
 procedure WriteOidFile(filename: string; oid: POid);
@@ -93,7 +99,7 @@ begin
   desc := Trim(oid^.Description);
   if desc <> '' then
   begin
-    InitList(lines);
+    CreateList(lines);
     SplitStrToList(desc, lines, #13#10);
     for i := 0 to ListCount(lines)-1 do
     begin
@@ -167,6 +173,17 @@ begin
   end;
 
   Close(f);
+end;
+
+function FileIdPart(s: string): string;
+begin
+  FileIdPart := Copy(s,1,8);
+end;
+
+function DotNotationPart(s: string): string;
+begin
+  Delete(s,1,8);
+  DotNotationPart := s;
 end;
 
 end.

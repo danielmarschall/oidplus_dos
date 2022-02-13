@@ -3,7 +3,7 @@ unit OIDUTILS;
 (************************************************)
 (* OIDUTILS.PAS                                 *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-12                         *)
+(* Revision: 2022-02-14                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Various OID functions                      *)
@@ -68,8 +68,8 @@ function CompareOID(a, b: string): integer;
 var
   la, lb: PStringList;
 begin
-  InitList(la);
-  InitList(lb);
+  CreateList(la);
+  CreateList(lb);
   OIDtoArcList(a, la);
   OIDtoArcList(b, lb);
   CompareOID := CompareOIDArcList(la, lb);

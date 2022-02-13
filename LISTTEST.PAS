@@ -3,7 +3,7 @@ program LISTTEST;
 (************************************************)
 (* LISTTEST.PAS                                 *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2020-09-09                         *)
+(* Revision: 2022-02-13                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Example how to use lists and selection CUI *)
