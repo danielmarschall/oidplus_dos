@@ -23,7 +23,7 @@ const
 procedure DrawThinBorder(x, y, width, height: integer);
 procedure DrawDoubleBorder(x, y, width, height: integer);
 procedure DrawTextBar(str: string; line: integer);
-procedure DrawTitleBar(str: string);
+procedure DrawTitleBar(center, left, right: string);
 procedure DrawStatusBar(str: string);
 function DrawSelectionList(X, Y, ListWidth, ListHeight: integer;
                            items: PStringList; allowESC: boolean;
@@ -187,9 +187,25 @@ begin
   TextColor(White);
 end;
 
-procedure DrawTitleBar(str: string);
+procedure DrawTitleBar(center, left, right: string);
 begin
-  DrawTextBar(str, 1);
+  DrawTextBar(center, 1);
+
+  (* Put left text into the title bar *)
+  GoToXY(1,1);
+  TextBackground(White);
+  TextColor(Black);
+  WriteLn(left);
+  TextBackground(Black);
+  TextColor(White);
+
+  (* Put right text into the title bar *)
+  GotoXY(ScreenWidth-Length(right)+1,1);
+  TextBackground(White);
+  TextColor(Black);
+  WriteLn(right);
+  TextBackground(Black);
+  TextColor(White);
 end;
 
 procedure DrawStatusBar(str: string);

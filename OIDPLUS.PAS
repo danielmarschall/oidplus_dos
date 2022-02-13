@@ -24,6 +24,7 @@ const
   MAINMENU_WIDTH         = 15;
   MAINMENU_HEIGHT        = 3;
   MAINMENU_ALLOW_ESC     = false;
+  TITLEBAR_LEFT_TEXT     = 'OIDplus';
 
 procedure _WriteOidFile(filename: string; oid: POid);
 begin
@@ -461,17 +462,9 @@ end;
 procedure _DrawOidTitleBar(filename: string; oid: POID);
 begin
   if oid^.DotNotation = '' then
-    DrawTitleBar('OID ROOT')
+    DrawTitleBar('OID ROOT', TITLEBAR_LEFT_TEXT, filename)
   else
-    DrawTitleBar('OID ' + oid^.DotNotation);
-
-  (* Put loaded filename into the title bar *)
-  GotoXY(ScreenWidth-Length(filename)+1,1);
-  TextBackground(White);
-  TextColor(Black);
-  WriteLn(filename);
-  TextBackground(Black);
-  TextColor(White);
+    DrawTitleBar('OID ' + oid^.DotNotation, TITLEBAR_LEFT_TEXT, filename);
 end;
 
 procedure DisplayOIDFile(filename: string);
@@ -678,8 +671,8 @@ var
   initFile: string;
 begin
   ClrScr;
-  DrawTitleBar('Manage Object Identifiers');
-  DrawStatusBar('');
+  DrawTitleBar('Manage Object Identifiers', TITLEBAR_LEFT_TEXT, '');
+  DrawStatusBar('Loading data... please wait...');
 
   initFile := ZeroPad(0, 8) + '.OID';
   if not FileExists(initFile) then
@@ -692,7 +685,7 @@ end;
 procedure OP_ManageRAs;
 begin
   ClrScr;
-  DrawTitleBar('Manage Registration Authorities');
+  DrawTitleBar('Manage Registration Authorities', TITLEBAR_LEFT_TEXT, '');
   DrawStatusBar('');
 
   (* TODO: Implement "Manage RAs" feature *)
@@ -712,7 +705,7 @@ begin
   repeat
     ClrScr;
 
-    DrawTitleBar('Welcome to OIDplus for DOS');
+    DrawTitleBar('Welcome to OIDplus for DOS', '', '');
     DrawStatusBar(DEFAULT_STATUSBAR);
     GoToXY(ScreenWidth-Length(VERSIONINFO), ScreenHeight-1);
     Write(VERSIONINFO);
