@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-13                         *)
+(* Revision: 2022-02-14                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -13,7 +13,7 @@ uses
   Dos, Crt, StrList, VtsFuncs, VtsCui, OidFile, OidUtils;
 
 const
-  VERSIONINFO = 'Revision: 2022-02-13';
+  VERSIONINFO = 'Revision: 2022-02-14';
   DEFAULT_STATUSBAR = '(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.';
   DISKIO_SOUND_DEBUGGING = false;
   DISKIO_SOUND_DELAY = 500;
@@ -249,7 +249,7 @@ begin
               2) then
   begin
     oid^.description := sInput;
-    DescEditor := true; (* enable write file *)
+    DescEditor := true; (* request caller to save @oid *)
   end;
 end;
 
@@ -347,7 +347,7 @@ begin
           oid^.DotNotation := sInput
         else
           oid^.DotNotation := parentOID^.DotNotation + '.' + sInput;
-        NumIdEditor := true;
+        NumIdEditor := true; (* request caller to save @oid *)
         Exit;
       end;
     end
@@ -368,16 +368,18 @@ begin
   InitOidDef(@newoid);
   newoid.FileId := NextPossibleFileID;
   newoid.Parent := oid^.FileId + oid^.DotNotation;
-  if not NumIdEditor(@newoid, oid) then exit;
-  if not AsnEditor(@newoid) then exit;
-  if not DescEditor(@newoid) then exit;
+  if NumIdEditor(@newoid, oid) and
+     AsnEditor(@newoid) and
+     DescEditor(@newoid) then
+  begin
+    newfilename := newoid.FileId + '.OID';
+    _WriteOidFile(newfilename, @newoid);
 
-  newfilename := newoid.FileId + '.OID';
-  _WriteOidFile(newfilename, @newoid);
-
-  (* Add link to original file and enable the saving of it *)
-  ListAppend(oid^.SubIds, newoid.FileId + newoid.DotNotation);
-  NewOidEditor := true;
+    (* Add link to original file and enable the saving of it *)
+    ListAppend(oid^.SubIds, newoid.FileId + newoid.DotNotation);
+    NewOidEditor := true; (* request caller to save @oid *)
+  end;
+  FreeOidDef(@newoid);
 end;
 
 procedure DeleteChildrenRecursive(oid: POID);
@@ -576,6 +578,8 @@ begin
       ListAppend(subfiles, ID_DELETE);
     end;
 
+    (* Show menu *)
+
     subselres := DrawSelectionList(menuX, menuY,
                                    ScreenWidth-2,
                                    NAVBAR_SIZE,
@@ -583,6 +587,9 @@ begin
                                    true,
                                    'SELECT ACTION',
                                    1);
+
+    (* Process user selection *)
+
     if subselres = -1 then
     begin
       exit;

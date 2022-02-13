@@ -3,7 +3,7 @@ unit OIDFILE;
 (************************************************)
 (* OIDFILE.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-13                         *)
+(* Revision: 2022-02-14                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Functions to handle an OID ASCII format    *)
@@ -21,13 +21,14 @@ type
     DotNotation: string;
     ASNIds: PStringList;
     Description: string;
-    SubIds: PStringList;
-    Parent: string;
+    SubIds: PStringList; (* first 8 chars are FileId, followed by Dot-Notation *)
+    Parent: string; (* First 8 chars are FileId, followed by Dot-Notation *)
   end;
 
-procedure FreeOidDef(oid: POid);
-procedure WriteOidFile(filename: string; oid: POid);
 procedure InitOidDef(oid: POid);
+procedure FreeOidDef(oid: POid);
+procedure ClearOidDef(oid: POid);
+procedure WriteOidFile(filename: string; oid: POid);
 procedure ReadOidFile(filename: string; oid: POid);
 
 implementation
@@ -38,10 +39,26 @@ uses
 const
   WANT_VERS = '2022';
 
+procedure InitOidDef(oid: POid);
+begin
+  oid^.FileId := '';
+  oid^.DotNotation := '';
+  oid^.Description := '';
+  oid^.Parent := '';
+  InitList(oid^.ASNIds);
+  InitList(oid^.SubIds);
+end;
+
 procedure FreeOidDef(oid: POid);
 begin
   FreeList(oid^.ASNIds);
   FreeList(oid^.SubIds);
+end;
+
+procedure ClearOidDef(oid: POid);
+begin
+  FreeOidDef(oid);
+  InitOidDef(oid);
 end;
 
 procedure WriteOidFile(filename: string; oid: POid);
@@ -89,24 +106,13 @@ begin
   Close(f);
 end;
 
-procedure InitOidDef(oid: POid);
-begin
-  oid^.FileId := '';
-  oid^.DotNotation := '';
-  oid^.Description := '';
-  oid^.Parent := '';
-  InitList(oid^.ASNIds);
-  InitList(oid^.SubIds);
-end;
-
 procedure ReadOidFile(filename: string; oid: POid);
 var
   f: Text;
   line, cmd: string;
   version: string;
 begin
-  FreeOidDef(oid);
-  InitOidDef(oid);
+  ClearOidDef(oid);
   version := '';
 
   Assign(f, filename);
@@ -157,8 +163,7 @@ begin
   if (version <> WANT_VERS) or (oid^.FileId = '') then
   begin
     (* Invalidate everything *)
-    FreeOidDef(oid);
-    InitOidDef(oid);
+    ClearOidDef(oid);
   end;
 
   Close(f);
