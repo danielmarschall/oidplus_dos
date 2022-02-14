@@ -28,8 +28,8 @@ type
 procedure CreateOidDef(var oid: POid);
 procedure FreeOidDef(oid: POid);
 procedure ClearOidDef(oid: POid);
-procedure WriteOidFile(filename: string; oid: POid);
-procedure ReadOidFile(filename: string; oid: POid);
+function WriteOidFile(filename: string; oid: POid): boolean;
+function ReadOidFile(filename: string; oid: POid): boolean;
 
 (* For the fields "SubIds" and "Parent" *)
 function FileIdPart(s: string): string;
@@ -94,7 +94,7 @@ begin
   end;
 end;
 
-procedure WriteOidFile(filename: string; oid: POid);
+function WriteOidFile(filename: string; oid: POid): boolean;
 var
   f: Text;
   i: integer;
@@ -103,7 +103,16 @@ var
   desc: string;
 begin
   Assign(f, filename);
+
+  {$I-}
   Rewrite(f);
+  {$I+}
+  if IoResult <> 0 then
+  begin
+    WriteOidFile := false;
+    (* Must not call Close(f) if file was never opened *)
+    Exit;
+  end;
 
   WriteLn(f, 'VERS' + WANT_VERS);
 
@@ -140,9 +149,11 @@ begin
   end;
 
   Close(f);
+
+  WriteOidFile := true;
 end;
 
-procedure ReadOidFile(filename: string; oid: POid);
+function ReadOidFile(filename: string; oid: POid): boolean;
 var
   f: Text;
   line, cmd: string;
@@ -152,7 +163,16 @@ begin
   version := '';
 
   Assign(f, filename);
+  {$I-}
   Reset(f);
+  {$I+}
+  if IoResult <> 0 then
+  begin
+    ReadOidFile := false;
+    (* Must not call Close(f) if file was never opened *)
+    Exit;
+  end;
+
   while not EOF(f) do
   begin
     ReadLn(f, line);
@@ -206,6 +226,8 @@ begin
   end;
 
   Close(f);
+
+  ReadOidFile := true;
 end;
 
 function FileIdPart(s: string): string;

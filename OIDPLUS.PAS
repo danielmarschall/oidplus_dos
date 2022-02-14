@@ -37,38 +37,6 @@ const
   TREEVIEW_INCLUDE_DESC  = true;
   TREEVIEW_WIDTH         = 80;
 
-procedure _WriteOidFile(filename: string; oid: POid);
-begin
-  DrawStatusBar('Write file ' + filename + '...');
-  WriteOidFile(filename, oid);
-
-  if DISKIO_SOUND_DEBUGGING then
-  begin
-    Sound(70);
-    Delay(DISKIO_SOUND_DELAY - 10);
-    NoSound;
-    Delay(10);
-  end;
-
-  DrawStatusBar(DEFAULT_STATUSBAR);
-end;
-
-procedure _ReadOidFile(filename: string; oid: POid);
-begin
-  DrawStatusBar('Read file ' + filename + '...');
-  ReadOidFile(filename, oid);
-
-  if DISKIO_SOUND_DEBUGGING then
-  begin
-    Sound(50);
-    Delay(DISKIO_SOUND_DELAY - 10);
-    NoSound;
-    Delay(10);
-  end;
-
-  DrawStatusBar(DEFAULT_STATUSBAR);
-end;
-
 procedure _Pause;
 var
   bakX, bakY: integer;
@@ -79,6 +47,54 @@ begin
   GoToXY(bakX, bakY);
   ReadKey;
   DrawStatusBar(DEFAULT_STATUSBAR);
+end;
+
+function _WriteOidFile(filename: string; oid: POid; ShowErrorMessage: boolean): boolean;
+var
+  res: boolean;
+begin
+  DrawStatusBar('Write file ' + filename + '...');
+  res := WriteOidFile(filename, oid);
+  if DISKIO_SOUND_DEBUGGING then
+  begin
+    Sound(70);
+    Delay(DISKIO_SOUND_DELAY - 10);
+    NoSound;
+    Delay(10);
+  end;
+  DrawStatusBar(DEFAULT_STATUSBAR);
+
+  _WriteOidFile := res;
+
+  if ShowErrorMessage and not res then
+  begin
+    ShowMessage('Cannot write to file ' + filename, 'ERROR', true);
+    _Pause;
+  end;
+end;
+
+function _ReadOidFile(filename: string; oid: POid; ShowErrorMessage: boolean): boolean;
+var
+  res: boolean;
+begin
+  DrawStatusBar('Read file ' + filename + '...');
+  res := ReadOidFile(filename, oid);
+  if DISKIO_SOUND_DEBUGGING then
+  begin
+    Sound(50);
+    Delay(DISKIO_SOUND_DELAY - 10);
+    NoSound;
+    Delay(10);
+  end;
+  DrawStatusBar(DEFAULT_STATUSBAR);
+
+  _ReadOidFile := res;
+
+  if ShowErrorMessage and not res then
+  begin
+    ShowMessage('Cannot read file ' + filename, 'ERROR', true);
+    _Pause;
+  end;
 end;
 
 function _ShowASNIds(childOID: POID): string;
@@ -374,11 +390,12 @@ begin
      DescEditor(newOID) then
   begin
     newfilename := newOID^.FileId + '.OID';
-    _WriteOidFile(newfilename, newOID);
-
-    (* Add link to original file and enable the saving of it *)
-    ListAppend(oid^.SubIds, newOID^.FileId + newOID^.DotNotation);
-    NewOidEditor := true; (* request caller to save <oid> *)
+    if _WriteOidFile(newfilename, newOID, true) then
+    begin
+      (* Add link to original file and enable the saving of it *)
+      ListAppend(oid^.SubIds, newOID^.FileId + newOID^.DotNotation);
+      NewOidEditor := true; (* request caller to save <oid> *)
+    end;
   end;
   FreeOidDef(newOID);
 end;
@@ -395,8 +412,10 @@ begin
     if FileExists(filenameChild) then
     begin
       CreateOidDef(childOID);
-      _ReadOidFile(filenameChild, childOID);
-      DeleteChildrenRecursive(childOID);
+      if _ReadOidFile(filenameChild, childOID, false) then
+      begin
+        DeleteChildrenRecursive(childOID);
+      end;
       FreeOidDef(childOID);
       DeleteFile(filenameChild);
     end;
@@ -414,14 +433,17 @@ begin
   DeleteChildrenRecursive(selfOID);
 
   (* Remove forward reference in parent OID *)
+  (* (this is the most important part)      *)
   filenameParent := FileIdPart(selfOID^.Parent) + '.OID';
   if FileExists(filenameParent) then
   begin
     CreateOidDef(parentOID);
-    _ReadOidFile(filenameParent, parentOID);
-    if ListDeleteElementByValue(parentOID^.SubIds, selfOID^.FileId + selfOID^.DotNotation) then
+    if _ReadOidFile(filenameParent, parentOID, true) then
     begin
-      _WriteOidFile(filenameParent, parentOID);
+      if ListDeleteElementByValue(parentOID^.SubIds, selfOID^.FileId + selfOID^.DotNotation) then
+      begin
+        _WriteOidFile(filenameParent, parentOID, true);
+      end;
     end;
     FreeOidDef(parentOID);
   end;
@@ -485,15 +507,13 @@ var
 begin
   exitRequest := false;
   repeat
-    if not FileExists(filename) then
+    CreateOidDef(oid);
+
+    if not _ReadOidFile(filename, oid, true) then
     begin
-      ShowMessage('File ' + filename + ' not found', 'ERROR', true);
-      _Pause;
+      FreeOidDef(oid);
       exit;
     end;
-
-    CreateOidDef(oid);
-    _ReadOidFile(filename, oid);
 
     (* Print OID information *)
 
@@ -568,8 +588,10 @@ begin
       if FileExists(subfile) then
       begin
         CreateOidDef(tmpOID);
-        _ReadOidFile(subfile, tmpOID);
-        ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID));
+        if _ReadOidFile(subfile, tmpOID, true) then
+          ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID))
+        else
+          ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + ' (READ ERROR)');
         FreeOidDef(tmpOID);
       end
       else
@@ -593,8 +615,10 @@ begin
       if FileExists(subfile) then
       begin
         CreateOidDef(tmpOID);
-        _ReadOidFile(subfile, tmpOID);
-        ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID));
+        if _ReadOidFile(subfile, tmpOID, true) then
+          ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID))
+        else
+          ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + ' (READ ERROR)');
         FreeOidDef(tmpOID);
       end
       else
@@ -643,17 +667,17 @@ begin
     else if subselres = menuIdAsnEdit then
     begin
       if AsnEditor(oid) then
-        _WriteOidFile(filename, oid);
+        _WriteOidFile(filename, oid, true);
     end
     else if subselres = menuIdDescEdit then
     begin
       if DescEditor(oid) then
-        _WriteOidFile(filename, oid);
+        _WriteOidFile(filename, oid, true);
     end
     else if subselres = menuIdAdd then
     begin
       if NewOidEditor(oid) then
-        _WriteOidFile(filename, oid);
+        _WriteOidFile(filename, oid, true);
     end
     else if subselres = menuIdDelete then
     begin
@@ -667,7 +691,7 @@ begin
         end
         else
         begin
-          ShowMessage('Parent file ' + filename + ' not found', 'ERROR', true);
+          ShowMessage('Parent file ' + sTmp + ' not found', 'ERROR', true);
           _Pause;
           exitRequest := true;
         end;
@@ -687,7 +711,7 @@ begin
       end
       else
       begin
-        ShowMessage('File ' + filename + ' not found', 'ERROR', true);
+        ShowMessage('File ' + sTmp + ' not found', 'ERROR', true);
         _Pause;
       end;
     end;
@@ -698,7 +722,7 @@ begin
   until exitRequest;
 end;
 
-procedure CreateRootOIDFile(filename: string);
+function CreateRootOIDFile(filename: string; ShowErrorMessage: boolean): boolean;
 var
   oid: POID;
 begin
@@ -712,7 +736,7 @@ begin
   oid^.FileId      := ZeroPad(0, 8);
   oid^.DotNotation := '';
   oid^.Parent      := ZeroPad(0, 8);
-  _WriteOidFile(filename, oid);
+  CreateRootOIDFile := _WriteOidFile(filename, oid, ShowErrorMessage);
   FreeOidDef(oid);
 end;
 
@@ -721,24 +745,13 @@ var
   rootFile: string;
 begin
   rootFile := ZeroPad(0, 8) + '.OID';
+  _GetRootFile := rootFile;
   if not FileExists(rootFile) then
   begin
-    {$I-}
-    CreateRootOIDFile(rootFile);
-    {$I+}
-  end;
-  if not FileExists(rootFile) then
-  begin
-    _GetRootFile := '';
-    if ShowErrorMessage then
+    if not CreateRootOIDFile(rootFile, ShowErrorMessage) then
     begin
-      ShowMessage('Cannot create ' + rootfile + '! Is disk read-only?', 'ERROR', true);
-      _Pause;
+      _GetRootFile := '';
     end;
-  end
-  else
-  begin
-    _GetRootFile := rootFile;
   end;
 end;
 
@@ -769,8 +782,10 @@ end;
 procedure OP_ReturnToMSDOS;
 begin
   ClrScr;
+  TextBackground(Black);
+  TextColor(LightGray);
   WriteLn('Thank you for using OIDplus for DOS.');
-  WRiteLn('');
+  WriteLn('');
 end;
 
 function _GetTreeViewLine(oid: POID; indent: integer): string;
@@ -820,18 +835,23 @@ begin
     sTmp := ListGetElement(oid^.SubIds, i);
     CreateOidDef(suboid);
     childFilename := FileIdPart(sTmp) + '.OID';
-    if FileExists(childFilename) then
+    if not FileExists(childFilename) then
     begin
-      _ReadOidFile(childFilename, suboid);
-      _RecTreeExport(suboid, F, indent+1);
-      FreeOidDef(suboid);
+      sTmp := 'ERROR: ' + childFilename + ' FILE MISSING (CONTAINS ' + DotNotationPart(sTmp) + ')!';
+      sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
+      WriteLn(F, sTmp);
+    end
+    else if not _ReadOidFile(childFilename, suboid, false) then
+    begin
+      sTmp := 'ERROR: ' + childFilename + ' READ ERROR (CONTAINS ' + DotNotationPart(sTmp) + ')!';
+      sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
+      WriteLn(F, sTmp);
     end
     else
     begin
-      sTmp := 'ERROR: FILE ' + childFilename + ' CONTAINING CHILD OID ' + DotNotationPart(sTmp) + ' WAS NOT FOUND!';
-      sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
-      WriteLn(F, sTmp);
-    end;
+      _RecTreeExport(suboid, F, indent+1);
+      FreeOidDef(suboid);
+    end
   end;
 end;
 
@@ -840,28 +860,50 @@ var
   F: Text;
   rootoid: POID;
   rootfile: string;
+  res: boolean;
 begin
   ClrScr;
   DrawTitleBar('TreeView Export', TITLEBAR_LEFT_TEXT, '');
   DrawStatusBar('Exporting data... please wait...');
 
   (* This will try creating a new root file if it does not exist *)
-  rootfile := _GetRootFile(true);;
-  if rootfile = '' then Exit;
+  rootfile := _GetRootFile(true);
+  if rootfile = '' then
+  begin
+    DrawStatusBar(DEFAULT_STATUSBAR);
+    Exit;
+  end;
 
   Assign(F, 'OIDTREE.TXT');
+  {$I-}
   Rewrite(F);
+  {$I+}
+  if IoResult <> 0 then
+  begin
+    (* Can happen if disk is read-only (Runtime Error 150) *)
+    ShowMessage('Cannot open OIDTREE.TXT for writing.', 'ERROR', true);
+    _Pause;
+    DrawStatusBar(DEFAULT_STATUSBAR);
+    Exit;
+  end;
 
+  res := false;
   CreateOidDef(rootoid);
-  _ReadOidFile(rootfile, rootoid);
-  _RecTreeExport(rootoid, F, 0);
+  if _ReadOidFile(rootfile, rootoid, true) then
+  begin
+    _RecTreeExport(rootoid, F, 0);
+    res := true;
+  end;
   FreeOidDef(rootoid);
 
-  DrawStatusBar(DEFAULT_STATUSBAR);
-  ShowMessage('TreeView successfully exported as OIDTREE.TXT', 'TREEVIEW EXPORT', true);
-  _Pause;
-
   Close(F);
+
+  DrawStatusBar(DEFAULT_STATUSBAR);
+  if res then
+  begin
+    ShowMessage('TreeView successfully exported as OIDTREE.TXT', 'TREEVIEW EXPORT', true);
+    _Pause;
+  end;
 end;
 
 procedure OP_MainMenu;
