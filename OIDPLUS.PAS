@@ -9,6 +9,14 @@ program OIDPLUS;
 (* - "OIDplus for DOS" program                  *)
 (************************************************)
 
+(* IMPORTANT:                                                  *)
+(* When you compile this code with Turbo Pascal 7.01,          *)
+(* it won't run on fast PCs (Runtime Error 200).               *)
+(* The built EXE file needs to be patched.                     *)
+(* The program "PatchCRT" by Kennedy Software                  *)
+(* WON'T work because it somehow breaks our "_Pause" function. *)
+(* Instead, use the tool "TPPATCH" by Andreas Bauer.           *)
+
 uses
   Dos, Crt, StrList, VtsFuncs, VtsCui, OidFile, OidUtils;
 
@@ -93,20 +101,8 @@ begin
 end;
 
 function AsnAlreadyExisting(oid: POID; asnid: string): boolean;
-var
-  sTmp: string;
-  i: integer;
 begin
-  for i := 0 to ListCount(oid^.AsnIds)-1 do
-  begin
-    sTmp := ListGetElement(oid^.AsnIds, i);
-    if sTmp = asnid then
-    begin
-      AsnAlreadyExisting := true;
-      exit;
-    end;
-  end;
-  AsnAlreadyExisting := false;
+  AsnAlreadyExisting := ListContains(oid^.AsnIds, asnid);
 end;
 
 function AsnEditor(oid: POID): boolean;
@@ -692,7 +688,6 @@ begin
       else
       begin
         ShowMessage('File ' + filename + ' not found', 'ERROR', true);
-        (* TODO: With PatchCRT, there will be an infinite loop here *)
         _Pause;
       end;
     end;
@@ -754,9 +749,11 @@ end;
 procedure OP_ReturnToMSDOS;
 begin
   ClrScr;
+  WriteLn('Thank you for using OIDplus for DOS.');
+  WRiteLn('');
 end;
 
-function _GetExportLine(oid: POID; indent: integer): string;
+function _GetTreeViewLine(oid: POID; indent: integer): string;
 var
   i: integer;
   sTmp: string;
@@ -783,7 +780,7 @@ begin
   begin
     sTmp := Copy(sTmp, 1, TREEVIEW_WIDTH-3) + '...';
   end;
-  _GetExportLine := sTmp;
+  _GetTreeViewLine := sTmp;
 end;
 
 procedure _RecTreeExport(oid: POID; var F: Text; indent: integer);
@@ -793,7 +790,7 @@ var
   suboid: POID;
   childFilename: string;
 begin
-  sTmp := _GetExportLine(oid, indent);
+  sTmp := _GetTreeViewLine(oid, indent);
   sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
   WriteLn(F, sTmp);
 
