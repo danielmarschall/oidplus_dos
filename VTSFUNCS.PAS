@@ -3,7 +3,7 @@ unit VTSFUNCS;
 (************************************************)
 (* VTSFUNCS.PAS                                 *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-13                         *)
+(* Revision: 2022-02-14                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Various functions                          *)
@@ -11,14 +11,23 @@ unit VTSFUNCS;
 
 interface
 
+function Max(a, b: integer): integer;
+function Min(a, b: integer): integer;
+
 function CompareEqualLengthString(a, b: string): integer;
 function CompareNumericString(a, b: string): integer;
+
 procedure Beep;
+
 function Trim(s: string): string;
-function IsNumeric(s: string): boolean;
 function ZeroPad(i: LongInt; n: integer): string;
-procedure DeleteFile(filename: string);
+function LeftPadStr(s: string; n: integer; ch: char): string;
+function RightPadStr(s: string; n: integer; ch: char): string;
+
+function DeleteFile(filename: string): boolean;
 function FileExists(filename: string): boolean;
+
+function IsPositiveInteger(s: string): boolean;
 function StrToInt(s: string): Integer;
 function IntToStr(Value: Integer): string;
 
@@ -26,6 +35,22 @@ implementation
 
 uses
   Crt;
+
+function Max(a, b: integer): integer;
+begin
+  if a > b then
+    Max := a
+  else
+    Max := b;
+end;
+
+function Min(a, b: integer): integer;
+begin
+  if a < b then
+    Min := a
+  else
+    Min := b;
+end;
 
 function CompareEqualLengthString(a, b: string): integer;
 var
@@ -51,25 +76,12 @@ end;
 
 function CompareNumericString(a, b: string): integer;
 var
-  i, maxlen: integer;
-  prefix_a, prefix_b: string;
+  EqualLength: integer;
 begin
-  maxlen := Length(a);
-  if Length(b) > maxlen then maxlen := Length(b);
-
-  prefix_a := '';
-  for i := 1 to maxlen-Length(a) do
-  begin
-    prefix_a := prefix_a + '0';
- end;
-
-  prefix_b := '';
-  for i := 1 to maxlen-Length(b) do
-  begin
-    prefix_b := prefix_b + '0';
- end;
-
- CompareNumericString := CompareEqualLengthString(prefix_a+a, prefix_b+b);
+  EqualLength := Max(Length(a), Length(b));
+  a := LeftPadStr(a, EqualLength, '0');
+  b := LeftPadStr(b, EqualLength, '0');
+  CompareNumericString := CompareEqualLengthString(a, b);
 end;
 
 procedure Beep;
@@ -98,60 +110,53 @@ begin
   Trim := s;
 end;
 
-function IsNumeric(s: string): boolean;
-var
-  i: integer;
-begin
-  IsNumeric := false;
-
-  if Length(s) = 0 then exit;
-  if (s[1] = '0') and (s <> '0') then exit;
-  for i := 1 to Length(s) do
-  begin
-    if not (s[i] in ['0'..'9']) then exit;
-  end;
-
-  IsNumeric := true;
-end;
-
 function ZeroPad(i: LongInt; n: integer): string;
 var
   s: string;
 begin
-  Str(i, s);
-  while Length(s) < n do
-  begin
-    s := '0' + s;
-  end;
-  ZeroPad := s;
+  s := IntToStr(i);
+  ZeroPad := LeftPadStr(s, n, '0');
 end;
 
-procedure DeleteFile(filename: string);
-var
- F:  file;
- Ch: Char;
+function LeftPadStr(s: string; n: integer; ch: char): string;
 begin
- { Get file to delete from command line }
- Assign(F, filename);
- {$I-}
- Reset(F);
- {$I+}
- (*
- if IOResult <> 0 then
-   Writeln('Cannot find ', filename)
- else
- begin
- *)
-   Close(F);
-   (*
-   Write('Erase ', filename, '? ');
-   Readln(Ch);
-   if UpCase(CH) = 'Y' then
-   *)
-     Erase(F);
- (*
- end;
- *)
+  while Length(s) < n do
+  begin
+    s := ch + s;
+  end;
+  LeftPadStr := s;
+end;
+
+function RightPadStr(s: string; n: integer; ch: char): string;
+begin
+  while Length(s) < n do
+  begin
+    s := s + ch;
+  end;
+  RightPadStr := s;
+end;
+
+function DeleteFile(filename: string): boolean;
+var
+  F:  file;
+  Ch: Char;
+begin
+  Assign(F, filename);
+  {$I-}
+  Reset(F);
+  {$I+}
+  if IOResult <> 0 then
+  begin
+    DeleteFile := false; (* cannot find file *)
+  end
+  else
+  begin
+    Close(F);
+    {$I-}
+    Erase(F);
+    {$I+}
+    DeleteFile := IOResult = 0;
+  end;
 end;
 
 function FileExists(filename: string): boolean;
@@ -163,6 +168,22 @@ begin
   Reset(F);
   {$I+}
   FileExists := IoResult = 0;
+end;
+
+function IsPositiveInteger(s: string): boolean;
+var
+  i: integer;
+begin
+  IsPositiveInteger := false;
+
+  if Length(s) = 0 then exit;
+  if (s[1] = '0') and (s <> '0') then exit;
+  for i := 1 to Length(s) do
+  begin
+    if not (s[i] in ['0'..'9']) then exit;
+  end;
+
+  IsPositiveInteger := true;
 end;
 
 function StrToInt(s: string): Integer;

@@ -38,7 +38,7 @@ function DotNotationPart(s: string): string;
 implementation
 
 uses
-  VtsFuncs;
+  VtsFuncs, OidUtils;
 
 const
   WANT_VERS = '2022';
@@ -67,6 +67,29 @@ begin
   CreateOidDef(oid);
 end;
 
+procedure BubbleSortSubIds(oid: POid);
+var
+  n, i: integer;
+  a, b: string;
+begin
+  n := ListCount(oid^.SubIds);
+  while n>1 do
+  begin
+    i := 0;
+    while i<n-1 do
+    begin
+      a := DotNotationPart(ListGetElement(oid^.SubIds, i));
+      b := DotNotationPart(ListGetElement(oid^.SubIds, i+1));
+      if CompareOID(a, b) > 0 then
+      begin
+        ListSwapElement(oid^.SubIds, i, i+1);
+      end;
+      Inc(i);
+    end;
+    Dec(n);
+  end;
+end;
+
 procedure WriteOidFile(filename: string; oid: POid);
 var
   f: Text;
@@ -84,6 +107,8 @@ begin
 
   WriteLn(f,'SUPR' + oid^.Parent);
 
+  (* Sort sub IDs *)
+  BubbleSortSubIds(oid);
   for i := 0 to ListCount(oid^.SubIds)-1 do
   begin
     sTmp := ListGetElement(oid^.SubIds, i);
@@ -161,6 +186,9 @@ begin
       oid^.Description := oid^.Description + line + #13#10;
     end;
   end;
+  
+  (* Sort sub IDs *)
+  BubbleSortSubIds(oid);
 
   (* Remove last CRLF *)
   oid^.Description := Copy(oid^.Description, 1, Length(oid^.Description)-Length(#13#10));

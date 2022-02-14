@@ -327,7 +327,7 @@ begin
                 2) then
     begin
       if sInput = '' then continue;
-      if not IsNumeric(sInput) then
+      if not IsPositiveInteger(sInput) then
       begin
         ShowMessage('Invalid numeric ID (must be a positive integer)', 'ERROR', true);
         _Pause;
