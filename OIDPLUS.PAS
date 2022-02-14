@@ -15,6 +15,7 @@ uses
 const
   VERSIONINFO            = 'Revision: 2022-02-14';
   DEFAULT_STATUSBAR      = '(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.';
+  TITLEBAR_LEFT_TEXT     = 'OIDplus';
   DISKIO_SOUND_DEBUGGING = false;
   DISKIO_SOUND_DELAY     = 500;
   ASNEDIT_LINES          = 10;
@@ -24,7 +25,9 @@ const
   MAINMENU_WIDTH         = 15;
   MAINMENU_HEIGHT        = 3;
   MAINMENU_ALLOW_ESC     = false;
-  TITLEBAR_LEFT_TEXT     = 'OIDplus';
+  TREEVIEW_INDENT        = 0;
+  TREEVIEW_INCLUDE_DESC  = true;
+  TREEVIEW_WIDTH         = 80;
 
 procedure _WriteOidFile(filename: string; oid: POid);
 begin
@@ -70,15 +73,12 @@ begin
   DrawStatusBar(DEFAULT_STATUSBAR);
 end;
 
-function _ShowASNIds(subfile: string): string;
+function _ShowASNIds(childOID: POID): string;
 var
-  childOID: POID;
   j, jmax: integer;
   sTmp: string;
 begin
   sTmp := '';
-  CreateOidDef(childOID);
-  _ReadOidFile(subfile, childOID);
   jmax := ListCount(childOID^.ASNIds)-1;
   for j := 0 to jmax do
   begin
@@ -89,7 +89,6 @@ begin
     else
       sTmp := sTmp + ', ';
   end;
-  FreeOidDef(childOID);
   _ShowASNIds := sTmp;
 end;
 
@@ -256,7 +255,7 @@ begin
               2) then
   begin
     oid^.description := sInput;
-    DescEditor := true; (* request caller to save @oid *)
+    DescEditor := true; (* request caller to save <oid> *)
   end;
 end;
 
@@ -353,7 +352,7 @@ begin
           oid^.DotNotation := sInput
         else
           oid^.DotNotation := parentOID^.DotNotation + '.' + sInput;
-        NumIdEditor := true; (* request caller to save @oid *)
+        NumIdEditor := true; (* request caller to save <oid> *)
         Exit;
       end;
     end
@@ -383,7 +382,7 @@ begin
 
     (* Add link to original file and enable the saving of it *)
     ListAppend(oid^.SubIds, newOID^.FileId + newOID^.DotNotation);
-    NewOidEditor := true; (* request caller to save @oid *)
+    NewOidEditor := true; (* request caller to save <oid> *)
   end;
   FreeOidDef(newOID);
 end;
@@ -397,11 +396,14 @@ begin
   for i := 0 to ListCount(oid^.SubIds)-1 do
   begin
     filenameChild := FileIdPart(ListGetElement(oid^.SubIds, i)) + '.OID';
-    CreateOidDef(childOID);
-    _ReadOidFile(filenameChild, childOID);
-    DeleteChildrenRecursive(childOID);
-    FreeOidDef(childOID);
-    DeleteFile(filenameChild);
+    if FileExists(filenameChild) then
+    begin
+      CreateOidDef(childOID);
+      _ReadOidFile(filenameChild, childOID);
+      DeleteChildrenRecursive(childOID);
+      FreeOidDef(childOID);
+      DeleteFile(filenameChild);
+    end;
   end;
   ListClear(oid^.SubIds);
 end;
@@ -417,17 +419,23 @@ begin
 
   (* Remove forward reference in parent OID *)
   filenameParent := FileIdPart(selfOID^.Parent) + '.OID';
-  CreateOidDef(parentOID);
-  _ReadOidFile(filenameParent, parentOID);
-  if ListDeleteElementByValue(parentOID^.SubIds, selfOID^.FileId + selfOID^.DotNotation) then
+  if FileExists(filenameParent) then
   begin
-    _WriteOidFile(filenameParent, parentOID);
+    CreateOidDef(parentOID);
+    _ReadOidFile(filenameParent, parentOID);
+    if ListDeleteElementByValue(parentOID^.SubIds, selfOID^.FileId + selfOID^.DotNotation) then
+    begin
+      _WriteOidFile(filenameParent, parentOID);
+    end;
+    FreeOidDef(parentOID);
   end;
-  FreeOidDef(parentOID);
 
   (* Delete own file *)
   filenameSelf := selfOID^.FileId + '.OID';
-  DeleteFile(filenameSelf);
+  if FileExists(filenameSelf) then
+  begin
+    DeleteFile(filenameSelf);
+  end;
 end;
 
 function _DeleteConfirmation: boolean;
@@ -470,7 +478,7 @@ end;
 procedure DisplayOIDFile(filename: string);
 var
   isRoot: boolean;
-  oid: POID;
+  oid, tmpOID: POID;
   i, menuX, menuY: integer;
   linesLeft, linesRequired: integer;
   sTmp, subfile: string;
@@ -481,6 +489,13 @@ var
 begin
   exitRequest := false;
   repeat
+    if not FileExists(filename) then
+    begin
+      ShowMessage('File ' + filename + ' not found', 'ERROR', true);
+      _Pause;
+      exit;
+    end;
+
     CreateOidDef(oid);
     _ReadOidFile(filename, oid);
 
@@ -554,7 +569,17 @@ begin
     begin
       sTmp := oid^.Parent;
       subfile := FileIdPart(sTmp) + '.OID';
-      ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + _ShowASNIds(subfile));
+      if FileExists(subfile) then
+      begin
+        CreateOidDef(tmpOID);
+        _ReadOidFile(subfile, tmpOID);
+        ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID));
+        FreeOidDef(tmpOID);
+      end
+      else
+      begin
+        ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + ' (FILE NOT FOUND)');
+      end;
       ListAppend(subfiles, subfile);
     end;
 
@@ -569,7 +594,17 @@ begin
     begin
       sTmp := ListGetElement(oid^.SubIds, i);
       subfile := FileIdPart(sTmp) + '.OID';
-      ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + _ShowASNIds(subfile));
+      if FileExists(subfile) then
+      begin
+        CreateOidDef(tmpOID);
+        _ReadOidFile(subfile, tmpOID);
+        ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID));
+        FreeOidDef(tmpOID);
+      end
+      else
+      begin
+        ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + ' (FILE NOT FOUND)');
+      end;
       ListAppend(subfiles, subfile);
     end;
 
@@ -628,8 +663,18 @@ begin
     begin
       if _DeleteConfirmation then
       begin
-        filename := FileIdPart(oid^.Parent) + '.OID';
+        sTmp := FileIdPart(oid^.Parent) + '.OID';
         DeleteOidRecursive(oid);
+        if FileExists(sTmp) then
+        begin
+          filename := sTmp;
+        end
+        else
+        begin
+          ShowMessage('Parent file ' + filename + ' not found', 'ERROR', true);
+          _Pause;
+          exitRequest := true;
+        end;
       end;
     end
     else if subselres = menuIdExit then
@@ -639,7 +684,17 @@ begin
     else
     begin
       (* Normal OID *)
-      filename := ListGetElement(subfiles, subselres);
+      sTmp := ListGetElement(subfiles, subselres);
+      if FileExists(sTmp) then
+      begin
+        filename := sTmp;
+      end
+      else
+      begin
+        ShowMessage('File ' + filename + ' not found', 'ERROR', true);
+        (* TODO: With PatchCRT, there will be an infinite loop here *)
+        _Pause;
+      end;
     end;
     FreeList(subsel);
     FreeList(subfiles);
@@ -666,20 +721,25 @@ begin
   FreeOidDef(oid);
 end;
 
-procedure OP_ManageOIDs;
+function _GetInitFile: string;
 var
   initFile: string;
 begin
-  ClrScr;
-  DrawTitleBar('Manage Object Identifiers', TITLEBAR_LEFT_TEXT, '');
-  DrawStatusBar('Loading data... please wait...');
-
   initFile := ZeroPad(0, 8) + '.OID';
   if not FileExists(initFile) then
   begin
     CreateInitOIDFile(initFile);
   end;
-  DisplayOIDFile(initFile);
+  _GetInitFile := initFile;
+end;
+
+procedure OP_ManageOIDs;
+begin
+  ClrScr;
+  DrawTitleBar('Manage Object Identifiers', TITLEBAR_LEFT_TEXT, '');
+  DrawStatusBar('Loading data... please wait...');
+
+  DisplayOIDFile(_GetInitFile);
 end;
 
 procedure OP_ManageRAs;
@@ -696,11 +756,97 @@ begin
   ClrScr;
 end;
 
+function _GetExportLine(oid: POID; indent: integer): string;
+var
+  i: integer;
+  sTmp: string;
+begin
+  (* Build line *)
+  sTmp := RepeatStr(' ', indent*TREEVIEW_INDENT);
+  if oid^.DotNotation = '' then
+    sTmp := sTmp + 'Object Identifiers'
+  else
+    sTmp := sTmp + oid^.DotNotation;
+  sTmp := sTmp + _ShowAsnIds(oid);
+  if TREEVIEW_INCLUDE_DESC then
+  begin
+    if Trim(oid^.Description) <> '' then
+    begin
+      sTmp := sTmp + ': ' + oid^.Description;
+    end;
+  end;
+  for i := 1 to Length(sTmp) do
+  begin
+    if (sTmp[i]=#13) or (sTmp[i]=#10) then sTmp[i] := ' ';
+  end;
+  if Length(sTmp) > TREEVIEW_WIDTH then
+  begin
+    sTmp := Copy(sTmp, 1, TREEVIEW_WIDTH-3) + '...';
+  end;
+  _GetExportLine := sTmp;
+end;
+
+procedure _RecTreeExport(oid: POID; var F: Text; indent: integer);
+var
+  i: integer;
+  sTmp: string;
+  suboid: POID;
+  childFilename: string;
+begin
+  sTmp := _GetExportLine(oid, indent);
+  sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
+  WriteLn(F, sTmp);
+
+  (* Recursively call children *)
+  for i := 0 to ListCount(oid^.SubIds)-1 do
+  begin
+    sTmp := ListGetElement(oid^.SubIds, i);
+    CreateOidDef(suboid);
+    childFilename := FileIdPart(sTmp) + '.OID';
+    if FileExists(childFilename) then
+    begin
+      _ReadOidFile(childFilename, suboid);
+      _RecTreeExport(suboid, F, indent+1);
+      FreeOidDef(suboid);
+    end
+    else
+    begin
+      sTmp := 'ERROR: FILE ' + childFilename + ' CONTAINING CHILD OID ' + DotNotationPart(sTmp) + ' WAS NOT FOUND!';
+      sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
+      WriteLn(F, sTmp);
+    end;
+  end;
+end;
+
+procedure OP_TreeView;
+var
+  F: Text;
+  rootoid: POID;
+begin
+  ClrScr;
+  DrawTitleBar('TreeView Export', TITLEBAR_LEFT_TEXT, '');
+  DrawStatusBar('Exporting data... please wait...');
+
+  Assign(F, 'OIDTREE.TXT');
+  Rewrite(F);
+
+  CreateOidDef(rootoid);
+  _ReadOidFile(_GetInitFile, rootoid);
+  _RecTreeExport(rootoid, F, 0);
+  FreeOidDef(rootoid);
+
+  DrawStatusBar(DEFAULT_STATUSBAR);
+  ShowMessage('TreeView successfully exported as OIDTREE.TXT', 'TREEVIEW EXPORT', true);
+  _Pause;
+
+  Close(F);
+end;
+
 procedure OP_MainMenu;
 var
   menu: PStringList;
   menuRes, menuLeft, menuTop: integer;
-  menuIdOID, menuIdRA, menuIdExit: integer;
+  menuIdOID, menuIdRA, menuIdTree, menuIdExit: integer;
 begin
   repeat
     ClrScr;
@@ -714,6 +860,7 @@ begin
 
     menuIdOID  := ListAppend(menu, 'Manage OIDs');
     menuIdRA   := -99; (*ListAppend(menu, 'Manage RAs');*)
+    menuIdTree := ListAppend(menu, 'Export TreeView');
     menuIdExit := ListAppend(menu, 'Return to DOS');
 
     menuLeft := round(ScreenWidth/2 -MAINMENU_WIDTH/2);
@@ -730,6 +877,10 @@ begin
     else if menuRes = menuIdRA then
     begin
       OP_ManageRAs;
+    end
+    else if menuRes = menuIdTree then
+    begin
+      OP_Treeview;
     end;
   until (menuRes = menuIdExit) or (MAINMENU_ALLOW_ESC and (menuRes = -1));
 

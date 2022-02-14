@@ -319,11 +319,7 @@ doAgain:
     else
     begin
       sTmp := ListGetElement(items, i);
-      if Length(sTmp) > ListWidth then
-      begin
-        (* Cut too long line *)
-        sTmp := Copy(sTmp, 1, ListWidth-3) + '...';
-      end;
+      sTmp := TrimLineToWidth(sTmp, ListWidth);
       Write(FillRight(sTmp, ListWidth, ' '));
     end;
     TextColor(White);
@@ -350,11 +346,15 @@ doAgain:
       else if sc = #$47(*POS1*) then
       begin
         itemIndex := 0;
+        iStartScope := 0;
+        iEndScope := iStartScope + ListHeight;
         goto doAgain;
       end
       else if sc = #$4F(*END*) then
       begin
-        itemIndex := ListCount(items);
+        itemIndex := ListCount(items)-1;
+        iStartScope := itemIndex - Min(ListHeight,ListCount(items));
+        iEndScope := itemIndex;
         goto doAgain;
       end;
     end;

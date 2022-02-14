@@ -20,9 +20,11 @@ function CompareNumericString(a, b: string): integer;
 procedure Beep;
 
 function Trim(s: string): string;
+function TrimLineToWidth(s: string; width: integer): string;
 function ZeroPad(i: LongInt; n: integer): string;
 function LeftPadStr(s: string; n: integer; ch: char): string;
 function RightPadStr(s: string; n: integer; ch: char): string;
+function RepeatStr(ch: char; n: integer): string;
 
 function DeleteFile(filename: string): boolean;
 function FileExists(filename: string): boolean;
@@ -110,6 +112,16 @@ begin
   Trim := s;
 end;
 
+function TrimLineToWidth(s: string; width: integer): string;
+begin
+  (* TODO: Put into VTSUTILS, also use for VTSCUI menu *)
+  if Length(s) > width then
+  begin
+    s := Copy(s, 1, width-3) + '...';
+  end;
+  TrimLineToWidth := s;
+end;
+
 function ZeroPad(i: LongInt; n: integer): string;
 var
   s: string;
@@ -134,6 +146,19 @@ begin
     s := s + ch;
   end;
   RightPadStr := s;
+end;
+
+function RepeatStr(ch: char; n: integer): string;
+var
+  i: integer;
+  res: string;
+begin
+  res := '';
+  for i := 1 to n do
+  begin
+    res := res + ch;
+  end;
+  RepeatStr := res;
 end;
 
 function DeleteFile(filename: string): boolean;
@@ -167,7 +192,15 @@ begin
   {$I-}
   Reset(F);
   {$I+}
-  FileExists := IoResult = 0;
+  if IoResult = 0 then
+  begin
+    Close(F);
+    FileExists := true;
+  end
+  else
+  begin
+    FileExists := false;
+  end;
 end;
 
 function IsPositiveInteger(s: string): boolean;

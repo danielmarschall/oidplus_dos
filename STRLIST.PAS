@@ -51,7 +51,7 @@ end;
 procedure FreeList(list: PStringList);
 begin
   if list^.next <> nil then
-    FreeMem(list^.next, SizeOf(TStringList));
+    FreeList(list^.Next);
   FreeMem(list, SizeOf(TStringList));
 end;
 
@@ -282,11 +282,13 @@ procedure ListBubbleSortNumericString(list: PStringList);
 var
   n, i: integer;
   a, b: string;
+  swapped: boolean;
 begin
   n := ListCount(list);
   while n>1 do
   begin
     i := 0;
+    swapped := false;
     while i<n-1 do
     begin
       a := ListGetElement(list, i);
@@ -294,9 +296,11 @@ begin
       if CompareNumericString(a, b) > 0 then
       begin
         ListSwapElement(list, i, i+1);
+        swapped := true;
       end;
       Inc(i);
     end;
+    if not swapped then break;
     Dec(n);
   end;
 end;

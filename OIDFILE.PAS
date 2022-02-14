@@ -67,15 +67,17 @@ begin
   CreateOidDef(oid);
 end;
 
-procedure BubbleSortSubIds(oid: POid);
+procedure ListBubbleSortSubIds(oid: POid);
 var
   n, i: integer;
   a, b: string;
+  swapped: boolean;
 begin
   n := ListCount(oid^.SubIds);
   while n>1 do
   begin
     i := 0;
+    swapped := false;
     while i<n-1 do
     begin
       a := DotNotationPart(ListGetElement(oid^.SubIds, i));
@@ -83,9 +85,11 @@ begin
       if CompareOID(a, b) > 0 then
       begin
         ListSwapElement(oid^.SubIds, i, i+1);
+        swapped := true;
       end;
       Inc(i);
     end;
+    if not swapped then break;
     Dec(n);
   end;
 end;
@@ -101,14 +105,15 @@ begin
   Assign(f, filename);
   Rewrite(f);
 
-  WriteLn(f,'VERS' + WANT_VERS);
+  WriteLn(f, 'VERS' + WANT_VERS);
 
-  WriteLn(f,'SELF' + oid^.FileId + oid^.DotNotation);
+  WriteLn(f, 'SELF' + oid^.FileId + oid^.DotNotation);
 
-  WriteLn(f,'SUPR' + oid^.Parent);
+  WriteLn(f, 'SUPR' + oid^.Parent);
 
   (* Sort sub IDs *)
-  BubbleSortSubIds(oid);
+  ListBubbleSortSubIds(oid);
+
   for i := 0 to ListCount(oid^.SubIds)-1 do
   begin
     sTmp := ListGetElement(oid^.SubIds, i);
@@ -186,9 +191,9 @@ begin
       oid^.Description := oid^.Description + line + #13#10;
     end;
   end;
-  
+
   (* Sort sub IDs *)
-  BubbleSortSubIds(oid);
+  ListBubbleSortSubIds(oid);
 
   (* Remove last CRLF *)
   oid^.Description := Copy(oid^.Description, 1, Length(oid^.Description)-Length(#13#10));

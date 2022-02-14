@@ -79,11 +79,13 @@ procedure ListBubbleSortOID(list: PStringList);
 var
   n, i: integer;
   a, b: string;
+  swapped: boolean;
 begin
   n := ListCount(list);
   while n>1 do
   begin
     i := 0;
+    swapped := false;
     while i<n-1 do
     begin
       a := ListGetElement(list, i);
@@ -91,9 +93,11 @@ begin
       if CompareOID(a, b) > 0 then
       begin
         ListSwapElement(list, i, i+1);
+        swapped := true;
       end;
       Inc(i);
     end;
+    if not swapped then break;
     Dec(n);
   end;
 end;

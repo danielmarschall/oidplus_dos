@@ -1,6 +1,5 @@
 
 TODO:
-* Export a tree diagram of all OIDs into a text file (can also be printed)
 * Implement RAs
 * Implement Create/Update timestamps? (people must be able to predate it)
 * See "TODO" entries in the *.pas files
