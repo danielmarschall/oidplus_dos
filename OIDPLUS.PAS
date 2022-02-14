@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-14                         *)
+(* Revision: 2022-02-15                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -21,7 +21,7 @@ uses
   Dos, Crt, StrList, VtsFuncs, VtsCui, OidFile, OidUtils;
 
 const
-  VERSIONINFO            = 'Revision: 2022-02-14';
+  VERSIONINFO            = 'Revision: 2022-02-15';
   DEFAULT_STATUSBAR      = '(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.';
   TITLEBAR_LEFT_TEXT     = 'OIDplus';
   DISKIO_SOUND_DEBUGGING = false;
@@ -36,6 +36,8 @@ const
   TREEVIEW_INDENT        = 0;
   TREEVIEW_INCLUDE_DESC  = true;
   TREEVIEW_WIDTH         = 80;
+  OID_EXTENSION          = '.OID';
+  TREEVIEW_FILENAME      = 'OIDTREE.TXT';
 
 procedure _Pause;
 var
@@ -280,7 +282,7 @@ var
 begin
   (* Put all found files into a list *)
   CreateList(list);
-  FindFirst('????????.OID', Archive, DirInfo);
+  FindFirst(RepeatStr('?',8)+OID_EXTENSION, Archive, DirInfo);
   while DosError = 0 do
   begin
     sId := Copy(DirInfo.Name, 1, 8);
@@ -389,7 +391,7 @@ begin
      AsnEditor(newOID) and
      DescEditor(newOID) then
   begin
-    newfilename := newOID^.FileId + '.OID';
+    newfilename := newOID^.FileId + OID_EXTENSION;
     if _WriteOidFile(newfilename, newOID, true) then
     begin
       (* Add link to original file and enable the saving of it *)
@@ -408,11 +410,12 @@ var
 begin
   for i := 0 to ListCount(oid^.SubIds)-1 do
   begin
-    filenameChild := FileIdPart(ListGetElement(oid^.SubIds, i)) + '.OID';
+    filenameChild := FileIdPart(ListGetElement(oid^.SubIds, i)) + OID_EXTENSION;
     if FileExists(filenameChild) then
     begin
       CreateOidDef(childOID);
-      if _ReadOidFile(filenameChild, childOID, false) then
+      if _ReadOidFile(filenameChild, childOID, false) and
+         (childOID^.Parent = oid^.FileId + oid^.DotNotation) then
       begin
         DeleteChildrenRecursive(childOID);
       end;
@@ -434,7 +437,7 @@ begin
 
   (* Remove forward reference in parent OID *)
   (* (this is the most important part)      *)
-  filenameParent := FileIdPart(selfOID^.Parent) + '.OID';
+  filenameParent := FileIdPart(selfOID^.Parent) + OID_EXTENSION;
   if FileExists(filenameParent) then
   begin
     CreateOidDef(parentOID);
@@ -449,7 +452,7 @@ begin
   end;
 
   (* Delete own file *)
-  filenameSelf := selfOID^.FileId + '.OID';
+  filenameSelf := selfOID^.FileId + OID_EXTENSION;
   if FileExists(filenameSelf) then
   begin
     DeleteFile(filenameSelf);
@@ -569,7 +572,7 @@ begin
 
     (* Now prepare the menu entries *)
 
-    CreateList(subsel);   (* Contains the human readable OID name *)
+    CreateList(subsel);   (* Contains the human-readable OID name *)
     CreateList(subfiles); (* Contains the file name               *)
 
     if oid^.Parent = '' then
@@ -584,21 +587,27 @@ begin
     if (oid^.Parent <> '') and not isRoot then
     begin
       sTmp := oid^.Parent;
-      subfile := FileIdPart(sTmp) + '.OID';
+      subfile := FileIdPart(sTmp) + OID_EXTENSION;
       if FileExists(subfile) then
       begin
         CreateOidDef(tmpOID);
-        if _ReadOidFile(subfile, tmpOID, true) then
-          ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID))
-        else
+        if not _ReadOidFile(subfile, tmpOID, true) then
+        begin
           ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + ' (READ ERROR)');
+          ListAppend(subfiles, 'ERROR: '+subfile+' Read error or file invalid');
+        end
+        else
+        begin
+          ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID));
+          ListAppend(subfiles, subfile);
+        end;
         FreeOidDef(tmpOID);
       end
       else
       begin
         ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + ' (FILE NOT FOUND)');
+        ListAppend(subfiles, 'ERROR: File '+subfile+' was not found');
       end;
-      ListAppend(subfiles, subfile);
     end;
 
     if isRoot then
@@ -611,21 +620,32 @@ begin
     for i := 0 to ListCount(oid^.SubIds)-1 do
     begin
       sTmp := ListGetElement(oid^.SubIds, i);
-      subfile := FileIdPart(sTmp) + '.OID';
+      subfile := FileIdPart(sTmp) + OID_EXTENSION;
       if FileExists(subfile) then
       begin
         CreateOidDef(tmpOID);
-        if _ReadOidFile(subfile, tmpOID, true) then
-          ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID))
-        else
+        if not _ReadOidFile(subfile, tmpOID, true) then
+        begin
           ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + ' (READ ERROR)');
+          ListAppend(subfiles, 'ERROR: Read error at file '+subfile+', or file is invalid.');
+        end
+        else if tmpOID^.Parent <> oid^.FileId + oid^.DotNotation then
+        begin
+          ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + ' (BAD BACKREF)');
+          ListAppend(subfiles, 'ERROR: File '+subfile+' has a wrong back-reference.');
+        end
+        else
+        begin
+          ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID));
+          ListAppend(subfiles, subfile);
+        end;
         FreeOidDef(tmpOID);
       end
       else
       begin
         ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + ' (FILE NOT FOUND)');
+        ListAppend(subfiles, 'ERROR: File '+subfile+' was not found');
       end;
-      ListAppend(subfiles, subfile);
     end;
 
     if oid^.DotNotation <> '' then
@@ -683,7 +703,7 @@ begin
     begin
       if _DeleteConfirmation then
       begin
-        sTmp := FileIdPart(oid^.Parent) + '.OID';
+        sTmp := FileIdPart(oid^.Parent) + OID_EXTENSION;
         DeleteOidRecursive(oid);
         if FileExists(sTmp) then
         begin
@@ -691,7 +711,7 @@ begin
         end
         else
         begin
-          ShowMessage('Parent file ' + sTmp + ' not found', 'ERROR', true);
+          ShowMessage('Parent file ' + sTmp + ' was not found', 'ERROR', true);
           _Pause;
           exitRequest := true;
         end;
@@ -704,15 +724,17 @@ begin
     else
     begin
       (* Normal OID *)
+      (* Above we already checked if the files are valild and existing *)
       sTmp := ListGetElement(subfiles, subselres);
-      if FileExists(sTmp) then
+      if Copy(sTmp, 1, Length('ERROR: ')) = 'ERROR: ' then
       begin
-        filename := sTmp;
+        Delete(sTmp, 1, Length('ERROR: '));
+        ShowMessage(sTmp, 'ERROR', true);
+        _Pause;
       end
       else
       begin
-        ShowMessage('File ' + sTmp + ' not found', 'ERROR', true);
-        _Pause;
+        filename := sTmp;
       end;
     end;
     FreeList(subsel);
@@ -744,7 +766,7 @@ function _GetRootFile(ShowErrorMessage: boolean): string;
 var
   rootFile: string;
 begin
-  rootFile := ZeroPad(0, 8) + '.OID';
+  rootFile := ZeroPad(0, 8) + OID_EXTENSION;
   _GetRootFile := rootFile;
   if not FileExists(rootFile) then
   begin
@@ -811,10 +833,7 @@ begin
   begin
     if (sTmp[i]=#13) or (sTmp[i]=#10) then sTmp[i] := ' ';
   end;
-  if Length(sTmp) > TREEVIEW_WIDTH then
-  begin
-    sTmp := Copy(sTmp, 1, TREEVIEW_WIDTH-3) + '...';
-  end;
+  sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
   _GetTreeViewLine := sTmp;
 end;
 
@@ -834,16 +853,23 @@ begin
   begin
     sTmp := ListGetElement(oid^.SubIds, i);
     CreateOidDef(suboid);
-    childFilename := FileIdPart(sTmp) + '.OID';
+    childFilename := FileIdPart(sTmp) + OID_EXTENSION;
     if not FileExists(childFilename) then
     begin
-      sTmp := 'ERROR: ' + childFilename + ' FILE MISSING (CONTAINS ' + DotNotationPart(sTmp) + ')!';
+      sTmp := 'ERROR: MISSING ' + childFilename + ' (SHALL CONTAIN ' + DotNotationPart(sTmp) + ')!';
       sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
       WriteLn(F, sTmp);
     end
     else if not _ReadOidFile(childFilename, suboid, false) then
     begin
-      sTmp := 'ERROR: ' + childFilename + ' READ ERROR (CONTAINS ' + DotNotationPart(sTmp) + ')!';
+      sTmp := 'ERROR: READ ERROR AT ' + childFilename + ' (SHALL CONTAIN ' + DotNotationPart(sTmp) + ')!';
+      sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
+      WriteLn(F, sTmp);
+    end
+    else if suboid^.Parent <> oid^.FileId + oid^.DotNotation then
+    begin
+      (* This can happen if a file is missing, and then another OID gets this filename since the number seems to be free *)
+      sTmp := 'ERROR: BAD BACKREF AT ' + childFilename + ' (SHALL CONTAIN ' + DotNotationPart(sTmp) + ')!';
       sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
       WriteLn(F, sTmp);
     end
@@ -874,14 +900,14 @@ begin
     Exit;
   end;
 
-  Assign(F, 'OIDTREE.TXT');
+  Assign(F, TREEVIEW_FILENAME);
   {$I-}
   Rewrite(F);
   {$I+}
   if IoResult <> 0 then
   begin
     (* Can happen if disk is read-only (Runtime Error 150) *)
-    ShowMessage('Cannot open OIDTREE.TXT for writing.', 'ERROR', true);
+    ShowMessage('Cannot open '+TREEVIEW_FILENAME+' for writing.', 'ERROR', true);
     _Pause;
     DrawStatusBar(DEFAULT_STATUSBAR);
     Exit;
@@ -901,7 +927,7 @@ begin
   DrawStatusBar(DEFAULT_STATUSBAR);
   if res then
   begin
-    ShowMessage('TreeView successfully exported as OIDTREE.TXT', 'TREEVIEW EXPORT', true);
+    ShowMessage('TreeView successfully exported as '+TREEVIEW_FILENAME, 'TREEVIEW EXPORT', true);
     _Pause;
   end;
 end;

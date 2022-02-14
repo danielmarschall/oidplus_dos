@@ -114,7 +114,6 @@ end;
 
 function TrimLineToWidth(s: string; width: integer): string;
 begin
-  (* TODO: Put into VTSUTILS, also use for VTSCUI menu *)
   if Length(s) > width then
   begin
     s := Copy(s, 1, width-3) + '...';

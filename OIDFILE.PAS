@@ -219,15 +219,9 @@ begin
   oid^.Description := Copy(oid^.Description, 1, Length(oid^.Description)-Length(#13#10));
 
   (* Check if something is not correct *)
-  if (version <> WANT_VERS) or (oid^.FileId = '') then
-  begin
-    (* Invalidate everything *)
-    ClearOidDef(oid);
-  end;
+  ReadOidFile := (version = WANT_VERS) and (oid^.FileId <> '');
 
   Close(f);
-
-  ReadOidFile := true;
 end;
 
 function FileIdPart(s: string): string;
