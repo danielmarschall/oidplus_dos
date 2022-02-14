@@ -698,7 +698,7 @@ begin
   until exitRequest;
 end;
 
-procedure CreateInitOIDFile(filename: string);
+procedure CreateRootOIDFile(filename: string);
 var
   oid: POID;
 begin
@@ -716,25 +716,45 @@ begin
   FreeOidDef(oid);
 end;
 
-function _GetInitFile: string;
+function _GetRootFile(ShowErrorMessage: boolean): string;
 var
-  initFile: string;
+  rootFile: string;
 begin
-  initFile := ZeroPad(0, 8) + '.OID';
-  if not FileExists(initFile) then
+  rootFile := ZeroPad(0, 8) + '.OID';
+  if not FileExists(rootFile) then
   begin
-    CreateInitOIDFile(initFile);
+    {$I-}
+    CreateRootOIDFile(rootFile);
+    {$I+}
   end;
-  _GetInitFile := initFile;
+  if not FileExists(rootFile) then
+  begin
+    _GetRootFile := '';
+    if ShowErrorMessage then
+    begin
+      ShowMessage('Cannot create ' + rootfile + '! Is disk read-only?', 'ERROR', true);
+      _Pause;
+    end;
+  end
+  else
+  begin
+    _GetRootFile := rootFile;
+  end;
 end;
 
 procedure OP_ManageOIDs;
+var
+  rootfile: string;
 begin
   ClrScr;
   DrawTitleBar('Manage Object Identifiers', TITLEBAR_LEFT_TEXT, '');
   DrawStatusBar('Loading data... please wait...');
 
-  DisplayOIDFile(_GetInitFile);
+  (* This will try creating a new root file if it does not exist *)
+  rootfile := _GetRootFile(true);
+  if rootfile = '' then Exit;
+
+  DisplayOIDFile(rootfile);
 end;
 
 procedure OP_ManageRAs;
@@ -819,16 +839,21 @@ procedure OP_TreeView;
 var
   F: Text;
   rootoid: POID;
+  rootfile: string;
 begin
   ClrScr;
   DrawTitleBar('TreeView Export', TITLEBAR_LEFT_TEXT, '');
   DrawStatusBar('Exporting data... please wait...');
 
+  (* This will try creating a new root file if it does not exist *)
+  rootfile := _GetRootFile(true);;
+  if rootfile = '' then Exit;
+
   Assign(F, 'OIDTREE.TXT');
   Rewrite(F);
 
   CreateOidDef(rootoid);
-  _ReadOidFile(_GetInitFile, rootoid);
+  _ReadOidFile(rootfile, rootoid);
   _RecTreeExport(rootoid, F, 0);
   FreeOidDef(rootoid);
 
