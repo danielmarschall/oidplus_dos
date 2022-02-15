@@ -15,8 +15,10 @@ uses
   StrList;
 
 const
+  (* These are available in DRIVERS.TPU, but require a call of InitVideo
   ScreenWidth = 80;
   ScreenHeight = 25;
+  *)
   SINGLE_LINE_BOX_PADDING = 3;
   SINGLE_LINE_BOX_PADDING_INNER = 10;
 
@@ -32,6 +34,8 @@ procedure ClearSection(x, y, width, height: integer);
 function QueryVal(var s: string; initX, initY, width, height: integer;
                   Title: string; borderStrength: integer): boolean;
 procedure ShowMessage(msg: string; title: string; dobeep: boolean);
+procedure CursorOn;
+procedure CursorOff;
 
 implementation
 
@@ -182,13 +186,19 @@ begin
   begin
     Write(' ');
   end;
+  GoToXY(1,1);
 
   TextBackground(Black);
   TextColor(White);
 end;
 
 procedure DrawTitleBar(center, left, right: string);
+var
+  bakx, baky: integer;
 begin
+  bakx := WhereX;
+  baky := WhereY;
+
   DrawTextBar(center, 1);
 
   (* Put left text into the title bar *)
@@ -206,11 +216,18 @@ begin
   WriteLn(right);
   TextBackground(Black);
   TextColor(White);
+
+  GoToXY(bakx, baky);
 end;
 
 procedure DrawStatusBar(str: string);
+var
+  bakx, baky: integer;
 begin
+  bakx := WhereX;
+  baky := WhereY;
   DrawTextBar(str, ScreenHeight);
+  GoToXY(bakx, baky);
 end;
 
 function DrawSelectionList(X, Y, ListWidth, ListHeight: integer;
@@ -562,6 +579,20 @@ begin
   GoToXY(x, y+1);
   Write(msg);
   if DoBeep then Beep;
+end;
+
+procedure CursorOn; assembler;
+asm
+  mov ah,1     (* Set text-mode cursor shape *)
+  mov cx,0607h (* normal underline cursor *)
+  int 10h
+end;
+
+procedure CursorOff; assembler;
+asm
+  mov ah,1     (* Set text-mode cursor shape *)
+  mov cx,2607h (* hide cursor (Start>End) *)
+  int 10h
 end;
 
 end.

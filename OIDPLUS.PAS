@@ -18,7 +18,7 @@ program OIDPLUS;
 (* Instead, use the tool "TPPATCH" by Andreas Bauer.           *)
 
 uses
-  Dos, Crt, StrList, VtsFuncs, VtsCui, OidFile, OidUtils;
+  Dos, Crt, Drivers, StrList, VtsFuncs, VtsCui, OidFile, OidUtils;
 
 const
   VERSIONINFO            = 'Revision: 2022-02-15';
@@ -40,14 +40,11 @@ const
   TREEVIEW_FILENAME      = 'OIDTREE.TXT';
 
 procedure _Pause;
-var
-  bakX, bakY: integer;
 begin
-  bakX := WhereX;
-  bakY := WhereY;
   DrawStatusBar('Press any key to continue');
-  GoToXY(bakX, bakY);
+  CursorOn;
   ReadKey;
+  CursorOff;
   DrawStatusBar(DEFAULT_STATUSBAR);
 end;
 
@@ -169,6 +166,7 @@ begin
     begin
       (* "NEW" item was selected *)
       sInput := '';
+      CursorOn;
       repeat
         if QueryVal(sInput,
                     SINGLE_LINE_BOX_PADDING_INNER,
@@ -197,6 +195,7 @@ begin
         end
         else break;
       until false;
+      CursorOff;
     end
     else if res = menuIdSave then
     begin
@@ -214,6 +213,7 @@ begin
     begin
       DrawStatusBar('Note: Remove the text to delete the ASN.1 identifier');
       sInput := ListGetElement(oid^.ASNIDs, res);
+	  CursorOn;
       repeat
         if QueryVal(sInput,
                     SINGLE_LINE_BOX_PADDING_INNER,
@@ -248,6 +248,7 @@ begin
         end
         else break;
       until false;
+	  CursorOff;
     end;
   until false;
 end;
@@ -260,6 +261,7 @@ begin
 
   DrawStatusBar('Note: Press Ctrl+Return for a line-break.');
   sInput := oid^.description;
+  CursorOn;
   if QueryVal(sInput,
               DESCEDIT_PADDING,
               ScreenHeight div 2 - DESCEDIT_LINES div 2,
@@ -271,6 +273,7 @@ begin
     oid^.description := sInput;
     DescEditor := true; (* request caller to save <oid> *)
   end;
+  CursorOff;
 end;
 
 function NextPossibleFileID: string;
@@ -330,6 +333,7 @@ begin
   NumIdEditor := false;
   sInput := '';
 
+  CursorOn;
   repeat
     if QueryVal(sInput,
                 SINGLE_LINE_BOX_PADDING_INNER,
@@ -367,14 +371,15 @@ begin
         else
           oid^.DotNotation := parentOID^.DotNotation + '.' + sInput;
         NumIdEditor := true; (* request caller to save <oid> *)
-        Exit;
+        Break;
       end;
     end
     else
     begin
-      Exit;
+      Break;
     end;
   until false;
+  CursorOff;
 end;
 
 function NewOidEditor(oid: POID): boolean;
@@ -469,7 +474,9 @@ begin
     ShowMessage('Are you sure you want to delete this OID? (Y/N)', 'DELETE OID', true);
     DrawStatusBar('Y=Yes, N=No');
 
+    CursorOn;
     sc := ReadKey;
+    CursorOff;
     if sc = #0 then
     begin
       (* Extended key. Nothing we care about. *)
@@ -809,6 +816,8 @@ begin
   ClrScr;
   TextBackground(Black);
   TextColor(LightGray);
+  ClrScr; (*Important, so that the DOS command prompt is also LightGray *)
+
   WriteLn('Thank you for using OIDplus for DOS.');
   WriteLn('');
 end;
@@ -982,5 +991,8 @@ begin
 end;
 
 begin
+  InitVideo; (* sets ScreenWidth and ScreenHeight *)
+  CursorOff;
   OP_MainMenu;
+  DoneVideo;
 end.
