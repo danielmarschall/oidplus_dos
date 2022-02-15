@@ -386,7 +386,8 @@ begin
 
   CreateOidDef(newOID);
   newOID^.FileId := NextPossibleFileID;
-  newOID^.Parent := oid^.FileId + oid^.DotNotation;
+  newOID^.ParentFileId := oid^.FileId;
+  newOID^.ParentDotNotation := oid^.DotNotation;
   if NumIdEditor(newOID, oid) and
      AsnEditor(newOID) and
      DescEditor(newOID) then
@@ -415,7 +416,8 @@ begin
     begin
       CreateOidDef(childOID);
       if _ReadOidFile(filenameChild, childOID, false) and
-         (childOID^.Parent = oid^.FileId + oid^.DotNotation) then
+         (childOID^.ParentFileId = oid^.FileId) and
+         (childOID^.ParentDotNotation = oid^.DotNotation) then
       begin
         DeleteChildrenRecursive(childOID);
       end;
@@ -437,7 +439,7 @@ begin
 
   (* Remove forward reference in parent OID *)
   (* (this is the most important part)      *)
-  filenameParent := FileIdPart(selfOID^.Parent) + OID_EXTENSION;
+  filenameParent := selfOID^.ParentFileId + OID_EXTENSION;
   if FileExists(filenameParent) then
   begin
     CreateOidDef(parentOID);
@@ -575,37 +577,36 @@ begin
     CreateList(subsel);   (* Contains the human-readable OID name *)
     CreateList(subfiles); (* Contains the file name               *)
 
-    if oid^.Parent = '' then
+    if oid^.ParentFileId = '' then
     begin
       isRoot := true;
     end
     else
     begin
-      isRoot := DotNotationPart(oid^.Parent) = oid^.DotNotation;
+      isRoot := oid^.ParentDotNotation = oid^.DotNotation;
     end;
 
-    if (oid^.Parent <> '') and not isRoot then
+    if (oid^.ParentFileId <> '') and not isRoot then
     begin
-      sTmp := oid^.Parent;
-      subfile := FileIdPart(sTmp) + OID_EXTENSION;
+      subfile := oid^.ParentFileId + OID_EXTENSION;
       if FileExists(subfile) then
       begin
         CreateOidDef(tmpOID);
         if not _ReadOidFile(subfile, tmpOID, true) then
         begin
-          ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + ' (READ ERROR)');
+          ListAppend(subsel, 'Go to parent ' + oid^.ParentDotNotation + ' (READ ERROR)');
           ListAppend(subfiles, 'ERROR: '+subfile+' Read error or file invalid');
         end
         else
         begin
-          ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + _ShowASNIds(tmpOID));
+          ListAppend(subsel, 'Go to parent ' + oid^.ParentDotNotation + _ShowASNIds(tmpOID));
           ListAppend(subfiles, subfile);
         end;
         FreeOidDef(tmpOID);
       end
       else
       begin
-        ListAppend(subsel, 'Go to parent ' + DotNotationPart(sTmp) + ' (FILE NOT FOUND)');
+        ListAppend(subsel, 'Go to parent ' + oid^.ParentDotNotation + ' (FILE NOT FOUND)');
         ListAppend(subfiles, 'ERROR: File '+subfile+' was not found');
       end;
     end;
@@ -629,7 +630,8 @@ begin
           ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + ' (READ ERROR)');
           ListAppend(subfiles, 'ERROR: Read error at file '+subfile+', or file is invalid.');
         end
-        else if tmpOID^.Parent <> oid^.FileId + oid^.DotNotation then
+        else if (tmpOID^.ParentFileId <> oid^.FileId) or
+                (tmpOID^.ParentDotNotation <> oid^.DotNotation) then
         begin
           ListAppend(subsel, 'Go to child  ' + DotNotationPart(sTmp) + ' (BAD BACKREF)');
           ListAppend(subfiles, 'ERROR: File '+subfile+' has a wrong back-reference.');
@@ -703,7 +705,7 @@ begin
     begin
       if _DeleteConfirmation then
       begin
-        sTmp := FileIdPart(oid^.Parent) + OID_EXTENSION;
+        sTmp := oid^.ParentFileId + OID_EXTENSION;
         DeleteOidRecursive(oid);
         if FileExists(sTmp) then
         begin
@@ -749,15 +751,16 @@ var
   oid: POID;
 begin
   CreateOidDef(oid);
-  oid^.Description := 'This is the root of the OID tree.' +#13#10 +
-                      #13#10 +
-                      'Valid subsequent arcs are per definition:' + #13#10 +
-                      '- 0 (itu-t)' + #13#10 +
-                      '- 1 (iso)' + #13#10 +
-                      '- 2 (joint-iso-itu-t)';
-  oid^.FileId      := ZeroPad(0, 8);
-  oid^.DotNotation := '';
-  oid^.Parent      := ZeroPad(0, 8);
+  oid^.Description  := 'This is the root of the OID tree.' +#13#10 +
+                       #13#10 +
+                       'Valid subsequent arcs are per definition:' + #13#10 +
+                       '- 0 (itu-t)' + #13#10 +
+                       '- 1 (iso)' + #13#10 +
+                       '- 2 (joint-iso-itu-t)';
+  oid^.FileId       := ZeroPad(0, 8);
+  oid^.DotNotation  := '';
+  oid^.ParentFileId := ZeroPad(0, 8);
+  oid^.ParentDotNotation := '';
   CreateRootOIDFile := _WriteOidFile(filename, oid, ShowErrorMessage);
   FreeOidDef(oid);
 end;
@@ -866,7 +869,8 @@ begin
       sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
       WriteLn(F, sTmp);
     end
-    else if suboid^.Parent <> oid^.FileId + oid^.DotNotation then
+    else if (suboid^.ParentFileId <> oid^.FileId) or
+            (suboid^.ParentDotNotation <> oid^.DotNotation) then
     begin
       (* This can happen if a file is missing, and then another OID gets this filename since the number seems to be free *)
       sTmp := 'ERROR: BAD BACKREF AT ' + childFilename + ' (SHALL CONTAIN ' + DotNotationPart(sTmp) + ')!';

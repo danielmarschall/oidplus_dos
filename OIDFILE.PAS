@@ -3,7 +3,7 @@ unit OIDFILE;
 (************************************************)
 (* OIDFILE.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-14                         *)
+(* Revision: 2022-02-15                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Functions to handle an OID ASCII format    *)
@@ -21,8 +21,9 @@ type
     DotNotation: string;
     ASNIds: PStringList;
     Description: string;
-    SubIds: PStringList; (* first 8 chars are FileId, followed by Dot-Notation *)
-    Parent: string; (* First 8 chars are FileId, followed by Dot-Notation *)
+    SubIds: PStringList; (* first 8 chars are FileId, followed by DotNotation *)
+    ParentFileId: string;
+    ParentDotNotation: string;
   end;
 
 procedure CreateOidDef(var oid: POid);
@@ -31,7 +32,7 @@ procedure ClearOidDef(oid: POid);
 function WriteOidFile(filename: string; oid: POid): boolean;
 function ReadOidFile(filename: string; oid: POid): boolean;
 
-(* For the fields "SubIds" and "Parent" *)
+(* For the strings in the list "SubIds": *)
 function FileIdPart(s: string): string;
 function DotNotationPart(s: string): string;
 
@@ -49,7 +50,8 @@ begin
   oid^.FileId := '';
   oid^.DotNotation := '';
   oid^.Description := '';
-  oid^.Parent := '';
+  oid^.ParentFileId := '';
+  oid^.ParentDotNotation := '';
   CreateList(oid^.ASNIds);
   CreateList(oid^.SubIds);
 end;
@@ -63,8 +65,13 @@ end;
 
 procedure ClearOidDef(oid: POid);
 begin
-  FreeOidDef(oid);
-  CreateOidDef(oid);
+  oid^.FileId := '';
+  oid^.DotNotation := '';
+  oid^.Description := '';
+  oid^.ParentFileId := '';
+  oid^.ParentDotNotation := '';
+  ListClear(oid^.ASNIds);
+  ListClear(oid^.SubIds);
 end;
 
 procedure ListBubbleSortSubIds(oid: POid);
@@ -118,7 +125,7 @@ begin
 
   WriteLn(f, 'SELF' + oid^.FileId + oid^.DotNotation);
 
-  WriteLn(f, 'SUPR' + oid^.Parent);
+  WriteLn(f, 'SUPR' + oid^.ParentFileId + oid^.ParentDotNotation);
 
   (* Sort sub IDs *)
   ListBubbleSortSubIds(oid);
@@ -193,7 +200,8 @@ begin
 
     if cmd = 'SUPR' then
     begin
-      oid^.Parent := line;
+      oid^.ParentFileId := FileIdPart(line);
+      oid^.ParentDotNotation := DotNotationPart(line);
     end;
 
     if cmd = 'CHLD' then
