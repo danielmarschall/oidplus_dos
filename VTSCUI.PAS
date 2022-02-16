@@ -3,7 +3,7 @@ unit VTSCUI;
 (************************************************)
 (* VTSCUI.PAS                                   *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-14                         *)
+(* Revision: 2022-02-16                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - ViaThinkSoft CUI (Console User Interface)  *)
@@ -36,6 +36,7 @@ function QueryVal(var s: string; initX, initY, width, height: integer;
 procedure ShowMessage(msg: string; title: string; dobeep: boolean);
 procedure CursorOn;
 procedure CursorOff;
+procedure ResetDefaultDosColors;
 
 implementation
 
@@ -374,6 +375,7 @@ doAgain:
         iEndScope := itemIndex;
         goto doAgain;
       end;
+      (* TODO: Implement PgUp and PgDown keys *)
     end;
 
     if sc = #13(*Return*) then
@@ -593,6 +595,12 @@ asm
   mov ah,1     (* Set text-mode cursor shape *)
   mov cx,2607h (* hide cursor (Start>End) *)
   int 10h
+end;
+
+procedure ResetDefaultDosColors;
+begin
+  TextBackground(Black);
+  TextColor(LightGray);
 end;
 
 end.

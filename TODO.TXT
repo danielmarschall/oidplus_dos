@@ -1,5 +1,11 @@
 
 TODO:
+* (See "TODO" entries in the *.pas files)
+
+IDEAS:
+* If you call OIDPLUS.EXE with an argument to a .OID file, then open this OID
+* TreeView: Write to StringList (avoid recursive calls) and save StringList to file
+* TreeView: In the preview, let the user jump to a specific OID
 * Implement RAs
 * Implement Create/Update timestamps? (people must be able to predate it)
-* See "TODO" entries in the *.pas files
+* Data exchange between OIDplus for Win95 and OIDplus 2.0 ?

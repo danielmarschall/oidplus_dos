@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-15                         *)
+(* Revision: 2022-02-16                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -21,7 +21,7 @@ uses
   Dos, Crt, Drivers, StrList, VtsFuncs, VtsCui, OidFile, OidUtils;
 
 const
-  VERSIONINFO            = 'Revision: 2022-02-15';
+  VERSIONINFO            = 'Revision: 2022-02-16';
   DEFAULT_STATUSBAR      = '(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.';
   TITLEBAR_LEFT_TEXT     = 'OIDplus';
   DISKIO_SOUND_DEBUGGING = false;
@@ -344,7 +344,7 @@ begin
                 2) then
     begin
       if sInput = '' then continue;
-      if not IsPositiveInteger(sInput) then
+      if not IsPositiveIntegerOrZero(sInput) then
       begin
         ShowMessage('Invalid numeric ID (must be a positive integer)', 'ERROR', true);
         _Pause;
@@ -802,20 +802,10 @@ begin
   DisplayOIDFile(rootfile);
 end;
 
-procedure OP_ManageRAs;
-begin
-  ClrScr;
-  DrawTitleBar('Manage Registration Authorities', TITLEBAR_LEFT_TEXT, '');
-  DrawStatusBar('');
-
-  (* TODO: Implement "Manage RAs" feature *)
-end;
-
 procedure OP_ReturnToMSDOS;
 begin
-  ClrScr;
-  TextBackground(Black);
-  TextColor(LightGray);
+  (* Note: These two lines don't seem to be necessary if you use DoneVideo *)
+  ResetDefaultDosColors;
   ClrScr; (*Important, so that the DOS command prompt is also LightGray *)
 
   WriteLn('Thank you for using OIDplus for DOS.');
@@ -825,7 +815,7 @@ end;
 function _GetTreeViewLine(oid: POID; indent: integer): string;
 var
   i: integer;
-  sTmp: string;
+  sTmp, sTmp2: string;
 begin
   (* Build line *)
   sTmp := RepeatStr(' ', indent*TREEVIEW_INDENT);
@@ -841,10 +831,13 @@ begin
       sTmp := sTmp + ': ' + oid^.Description;
     end;
   end;
-  for i := 1 to Length(sTmp) do
-  begin
-    if (sTmp[i]=#13) or (sTmp[i]=#10) then sTmp[i] := ' ';
-  end;
+
+  sTmp := StringReplace(sTmp, #13#10, ' ');
+  repeat
+    sTmp2 := sTmp;
+    sTmp := StringReplace(sTmp, '  ', ' ');
+  until sTmp = sTmp2;
+
   sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
   _GetTreeViewLine := sTmp;
 end;
@@ -892,6 +885,23 @@ begin
       FreeOidDef(suboid);
     end
   end;
+end;
+
+procedure TreeViewPreview;
+var
+  list: PStringList;
+begin
+  CreateList(list);
+
+  DrawStatusBar('Press ESC to return to the main menu');
+  ListLoadFromFile(list, TREEVIEW_FILENAME);
+  DrawSelectionList(2, 3, ScreenWidth-2, ScreenHeight-4,
+                    list, true, 'PREVIEW OF '+TREEVIEW_FILENAME, 2);
+  (* TODO: Jump to selected OID *)
+
+  DrawStatusBar(DEFAULT_STATUSBAR);
+
+  FreeList(list);
 end;
 
 procedure OP_TreeView;
@@ -943,13 +953,15 @@ begin
     ShowMessage('TreeView successfully exported as '+TREEVIEW_FILENAME, 'TREEVIEW EXPORT', true);
     _Pause;
   end;
+
+  TreeViewPreview;
 end;
 
 procedure OP_MainMenu;
 var
   menu: PStringList;
   menuRes, menuLeft, menuTop: integer;
-  menuIdOID, menuIdRA, menuIdTree, menuIdExit: integer;
+  menuIdOID, menuIdTree, menuIdExit: integer;
 begin
   repeat
     ClrScr;
@@ -962,7 +974,6 @@ begin
     CreateList(menu);
 
     menuIdOID  := ListAppend(menu, 'Manage OIDs');
-    menuIdRA   := -99; (*ListAppend(menu, 'Manage RAs');*)
     menuIdTree := ListAppend(menu, 'Export TreeView');
     menuIdExit := ListAppend(menu, 'Return to DOS');
 
@@ -977,10 +988,6 @@ begin
     begin
       OP_ManageOIDs;
     end
-    else if menuRes = menuIdRA then
-    begin
-      OP_ManageRAs;
-    end
     else if menuRes = menuIdTree then
     begin
       OP_Treeview;
@@ -994,5 +1001,6 @@ begin
   InitVideo; (* sets ScreenWidth and ScreenHeight *)
   CursorOff;
   OP_MainMenu;
+  CursorOn;
   DoneVideo;
 end.

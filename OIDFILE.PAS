@@ -226,7 +226,7 @@ begin
   (* Remove last CRLF *)
   oid^.Description := Copy(oid^.Description, 1, Length(oid^.Description)-Length(#13#10));
 
-  (* Check if something is not correct *)
+  (* Check if everything is correct *)
   ReadOidFile := (version = WANT_VERS) and (oid^.FileId <> '');
 
   Close(f);

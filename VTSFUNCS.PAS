@@ -3,7 +3,7 @@ unit VTSFUNCS;
 (************************************************)
 (* VTSFUNCS.PAS                                 *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-14                         *)
+(* Revision: 2022-02-16                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Various functions                          *)
@@ -29,9 +29,11 @@ function RepeatStr(ch: char; n: integer): string;
 function DeleteFile(filename: string): boolean;
 function FileExists(filename: string): boolean;
 
-function IsPositiveInteger(s: string): boolean;
+function IsPositiveIntegerOrZero(s: string): boolean;
 function StrToInt(s: string): Integer;
 function IntToStr(Value: Integer): string;
+
+function StringReplace(s, search, replace: string): string;
 
 implementation
 
@@ -202,11 +204,11 @@ begin
   end;
 end;
 
-function IsPositiveInteger(s: string): boolean;
+function IsPositiveIntegerOrZero(s: string): boolean;
 var
   i: integer;
 begin
-  IsPositiveInteger := false;
+  IsPositiveIntegerOrZero := false;
 
   if Length(s) = 0 then exit;
   if (s[1] = '0') and (s <> '0') then exit;
@@ -215,7 +217,7 @@ begin
     if not (s[i] in ['0'..'9']) then exit;
   end;
 
-  IsPositiveInteger := true;
+  IsPositiveIntegerOrZero := true;
 end;
 
 function StrToInt(s: string): Integer;
@@ -232,6 +234,32 @@ var
 begin
   Str(Value, s);
   IntToStr := s;
+end;
+
+function StringReplace(s, search, replace: string): string;
+var
+  i: integer;
+  output: string;
+begin
+  if s = '' then exit;
+  if search = '' then exit; (* invalid arg *)
+
+  output := '';
+  while s <> '' do
+  begin
+    if Copy(s, 1, Length(search)) = search then
+    begin
+      output := output + replace;
+      Delete(s, 1, Length(search));
+    end
+    else
+    begin
+      output := output + Copy(s, 1, 1);
+      Delete(s, 1, 1);
+    end;
+  end;
+
+  StringReplace := output;
 end;
 
 end.

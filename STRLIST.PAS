@@ -3,7 +3,7 @@ unit STRLIST;
 (************************************************)
 (* STRLIST.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-14                         *)
+(* Revision: 2022-02-16                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - StringList implementation for Turbo Pascal *)
@@ -34,6 +34,8 @@ procedure ListSwapElement(list: PStringList; i, j: integer);
 procedure SplitStrToList(str: string; list: PStringList; separator: string);
 procedure OIDtoArcList(oid: string; list: PStringList);
 procedure ListBubbleSortNumericString(list: PStringList);
+function ListLoadFromFile(list: PStringList; filename: string): boolean;
+function ListSaveToFile(list: PStringList; filename: string): boolean;
 
 implementation
 
@@ -303,6 +305,63 @@ begin
     if not swapped then break;
     Dec(n);
   end;
+end;
+
+function ListLoadFromFile(list: PStringList; filename: string): boolean;
+var
+  f: Text;
+  s: string;
+begin
+  Assign(f, filename);
+
+  {$I-}
+  Reset(f);
+  {$I+}
+  if IoResult <> 0 then
+  begin
+    ListLoadFromFile := false;
+    (* Must not call Close(f) if file was never opened *)
+    Exit;
+  end;
+
+  ListClear(list);
+
+  while not EOF(f) do
+  begin
+    ReadLn(f, s);
+    ListAppend(list, s);
+  end;
+
+  Close(f);
+  ListLoadFromFile := true;
+end;
+
+function ListSaveToFile(list: PStringList; filename: string): boolean;
+var
+  f: Text;
+  i: integer;
+  s: string;
+begin
+  Assign(f, filename);
+
+  {$I-}
+  Rewrite(f);
+  {$I+}
+  if IoResult <> 0 then
+  begin
+    ListSaveToFile := false;
+    (* Must not call Close(f) if file was never opened *)
+    Exit;
+  end;
+
+  for i := 0 to ListCount(list)-1 do
+  begin
+    s := ListGetElement(list, i);
+    WriteLn(f, s);
+  end;
+
+  Close(f);
+  ListSaveToFile := true;
 end;
 
 end.
