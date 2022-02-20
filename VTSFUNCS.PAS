@@ -3,7 +3,7 @@ unit VTSFUNCS;
 (************************************************)
 (* VTSFUNCS.PAS                                 *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-19                         *)
+(* Revision: 2022-02-20                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Various functions                          *)
@@ -29,7 +29,9 @@ function RepeatStr(ch: char; n: integer): string;
 function DeleteFile(filename: string): boolean;
 function FileExists(filename: string): boolean;
 
+function StripLeadingZeros(s: string): string;
 function IsPositiveIntegerOrZero(s: string): boolean;
+function IsBase36String(s: string): boolean;
 function StrToInt(s: string): Integer;
 function IntToStr(Value: Integer): string;
 
@@ -208,6 +210,14 @@ begin
   end;
 end;
 
+function StripLeadingZeros(s: string): string;
+begin
+  while (s <> '0') and (Copy(s,1,1) = '0') do
+    Delete(s,1,1);
+
+  StripLeadingZeros := s;
+end;
+
 function IsPositiveIntegerOrZero(s: string): boolean;
 var
   i: integer;
@@ -215,13 +225,29 @@ begin
   IsPositiveIntegerOrZero := false;
 
   if Length(s) = 0 then exit;
-  if (s[1] = '0') and (s <> '0') then exit;
+  (*if (s[1] = '0') and (s <> '0') then exit;*)
   for i := 1 to Length(s) do
   begin
     if not (s[i] in ['0'..'9']) then exit;
   end;
 
   IsPositiveIntegerOrZero := true;
+end;
+
+function IsBase36String(s: string): boolean;
+var
+  i: integer;
+begin
+  IsBase36String := false;
+
+  if Length(s) = 0 then exit;
+  (*if (s[1] = '0') and (s <> '0') then exit;*)
+  for i := 1 to Length(s) do
+  begin
+    if not (s[i] in ['0'..'9', 'A'..'Z']) then exit;
+  end;
+
+  IsBase36String := true;
 end;
 
 function StrToInt(s: string): Integer;
@@ -366,7 +392,7 @@ begin
       end;
     end;
     len := newlen;
-    res := tobase_str[divide+1] + res; (* Divide is basically $numstring % $tobase (i.e. the new character) *)
+    res := tobase_str[divide+1] + res; (* Divide is basically "numstring mod tobase" (i.e. the new character) *)
   until newlen = 0;
   base_convert_bigint := res;
 end;

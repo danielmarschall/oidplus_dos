@@ -79,7 +79,7 @@ begin
     wrkstr := StringReplace(wrkstr, c, IntToStr(Ord(c)-Ord('A')+10));
   end;
 
-  (* At the end, $wrkstr should only contain digits! Verify it! *)
+  (* At the end, wrkstr should only contain digits! Verify it! *)
   for i := 1 to Length(wrkstr) do
   begin
     if not (wrkstr[i] in ['0'..'9']) then

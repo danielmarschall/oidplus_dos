@@ -1,4 +1,4 @@
-unit WEID;
+unit WEID_Delphi;
 
 (*
  * WEID<=>OID Converter for Delphi
@@ -56,11 +56,11 @@ begin
   begin
     if S[i] = Chr then
     begin
-      LastCharPos := i;
+      result := i;
       Exit;
     end;
   end;
-  LastCharPos := 0;
+  result := 0;
   Exit;
 end;
 
@@ -94,7 +94,7 @@ begin
   end;
 
   len := Length(numstring);
-  base_convert_bigint := '';
+  result := '';
   number := numstring; (* this is a fake "Int8" array (implemented with chars) *)
   for i := 0 to len-1 do
   begin
@@ -120,9 +120,9 @@ begin
       end;
     end;
     len := newlen;
-    res := tobase_str[divide+1] + res; (* Divide is basically $numstring % $tobase (i.e. the new character) *)
+    res := tobase_str[divide+1] + res; (* Divide is basically "numstring mod tobase" (i.e. the new character) *)
   until newlen = 0;
-  base_convert_bigint := res;
+  result := res;
 end;
 
 function weLuhnGetCheckDigit(s: string): integer;
@@ -156,12 +156,12 @@ begin
     wrkstr := StringReplace(wrkstr, c, IntToStr(Ord(c)-Ord('A')+10), [rfReplaceAll]);
   end;
 
-  (* At the end, $wrkstr should only contain digits! Verify it! *)
+  (* At the end, wrkstr should only contain digits! Verify it! *)
   for i := 1 to Length(wrkstr) do
   begin
     if not (wrkstr[i] in ['0'..'9']) then
     begin
-      weLuhnGetCheckDigit := -1;
+      result := -1;
       exit;
     end;
   end;
@@ -179,9 +179,9 @@ begin
   end;
 
   if sum mod 10 = 0 then
-    weLuhnGetCheckDigit := 0
+    result := 0
   else
-    weLuhnGetCheckDigit := 10 - (sum mod 10);
+    result := 10 - (sum mod 10);
 end;
 
 function WeidToOid(var weid: string): string;
@@ -219,7 +219,7 @@ begin
   else
   begin
     (* Wrong namespace *)
-    WeidToOid := '';
+    result := '';
     Exit;
   end;
 
@@ -237,7 +237,7 @@ begin
   begin
     if actual_checksum <> IntToStr(expected_checksum) then
     begin
-      WeidToOid := ''; (* wrong checksum *)
+      result := ''; (* wrong checksum *)
       Exit;
     end;
   end
@@ -262,7 +262,7 @@ begin
 
   weid := namespace + weid; (* add namespace again *)
 
-  WeidToOid := oidstr;
+  result := oidstr;
 end;
 
 function OidToWeid(oid: string): string;
@@ -318,7 +318,7 @@ begin
   cd := weLuhnGetCheckDigit(weidstr);
   if cd < 0 then
   begin
-    OidToWeid := weidstr;
+    result := weidstr;
     exit;
   end;
   checksum := IntToStr(cd);
@@ -341,7 +341,7 @@ begin
   else
   begin
     (* should not happen *)
-    OidToWeid := '';
+    result := '';
     Exit;
   end;
 
@@ -350,7 +350,7 @@ begin
     res := res + checksum
   else
     res := res + weidstr + '-' + checksum;
-  OidToWeid := res;
+  result := res;
 end;
 
 end.

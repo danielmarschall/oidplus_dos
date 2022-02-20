@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-19                         *)
+(* Revision: 2022-02-20                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -22,8 +22,7 @@ uses
   Weid;
 
 const
-  VERSIONINFO            = 'Revision: 2022-02-19';
-  DEFAULT_STATUSBAR      = '(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.';
+  VERSIONINFO            = 'Revision: 2022-02-20';
   TITLEBAR_LEFT_TEXT     = 'OIDplus';
   DISKIO_SOUND_DEBUGGING = false;
   DISKIO_SOUND_DELAY     = 500;
@@ -46,7 +45,7 @@ begin
   CursorOn;
   ReadKey;
   CursorOff;
-  DrawStatusBar(DEFAULT_STATUSBAR);
+  DrawStatusBar('');
 end;
 
 function _WriteOidFile(filename: string; oid: POid; ShowErrorMessage: boolean): boolean;
@@ -62,7 +61,7 @@ begin
     NoSound;
     Delay(10);
   end;
-  DrawStatusBar(DEFAULT_STATUSBAR);
+  DrawStatusBar('');
 
   _WriteOidFile := res;
 
@@ -86,7 +85,7 @@ begin
     NoSound;
     Delay(10);
   end;
-  DrawStatusBar(DEFAULT_STATUSBAR);
+  DrawStatusBar('');
 
   _ReadOidFile := res;
 
@@ -143,7 +142,7 @@ begin
     menuIdSave := ListAppend(asnList, '<SAVE>');
     menuIdExit := ListAppend(asnList, '<CANCEL>');
 
-    DrawStatusBar(DEFAULT_STATUSBAR);
+    DrawStatusBar('');
     x := SINGLE_LINE_BOX_PADDING;
     y := ScreenHeight div 2 - ASNEDIT_LINES div 2;
     w := ScreenWidth - (SINGLE_LINE_BOX_PADDING-1)*2;
@@ -281,7 +280,7 @@ begin
     menuIdSave := ListAppend(iriList, '<SAVE>');
     menuIdExit := ListAppend(iriList, '<CANCEL>');
 
-    DrawStatusBar(DEFAULT_STATUSBAR);
+    DrawStatusBar('');
     x := SINGLE_LINE_BOX_PADDING;
     y := ScreenHeight div 2 - ASNEDIT_LINES div 2;
     w := ScreenWidth - (SINGLE_LINE_BOX_PADDING-1)*2;
@@ -443,16 +442,16 @@ begin
   FreeList(list);
 end;
 
-function NumIdAlreadyExisting(parentOID: POID; sInput: string): boolean;
+function NumIdAlreadyExisting(parentOID: POID; arcval: string): boolean;
 var
   searchDotNotation: string;
   sTmp: string;
   i: integer;
 begin
   if parentOID^.DotNotation = '' then
-    searchDotNotation := sInput
+    searchDotNotation := arcval
   else
-    searchDotNotation := parentOID^.DotNotation + '.' + sInput;
+    searchDotNotation := parentOID^.DotNotation + '.' + arcval;
   for i := 0 to ListCount(parentOID^.SubIds)-1 do
   begin
     sTmp := ListGetElement(parentOID^.SubIds, i);
@@ -468,53 +467,88 @@ end;
 function NumIdEditor(oid: POID; parentOID: POID): boolean;
 var
   sInput: string;
+  title: string;
+  base36mode: boolean;
+  arcval: string;
 begin
   NumIdEditor := false;
   sInput := '';
 
+  base36mode := false;
   CursorOn;
   repeat
+    if base36mode then
+    begin
+      DrawStatusBar('Press ESC to cancel');
+      title := 'ENTER BASE36 ID'
+    end
+    else
+    begin
+      DrawStatusBar('Enter "WEID" to enter a Base36 instead of Base10; press ESC to cancel');
+      title := 'ENTER NUMERIC ID';
+    end;
     if QueryVal(sInput,
                 SINGLE_LINE_BOX_PADDING_INNER,
                 ScreenHeight div 2,
                 ScreenWidth - (SINGLE_LINE_BOX_PADDING_INNER-1)*2,
                 1,
-                'ENTER NUMERIC ID',
+                title,
                 2) then
     begin
       if sInput = '' then continue;
-      if not IsPositiveIntegerOrZero(sInput) then
+      if not base36mode and (sInput = 'WEID') then
+      begin
+        sInput := '';
+        base36mode := true;
+      end
+      else if not base36mode and not IsPositiveIntegerOrZero(sInput) then
       begin
         ShowMessage('Invalid numeric ID (must be a positive integer)', 'ERROR', true);
         _Pause;
       end
-      else if (parentOID^.DotNotation='') and (StrToInt(sInput) > 2) then
+      else if base36mode and not IsBase36String(sInput) then
       begin
-        ShowMessage('Invalid numeric ID (root arc can only be 0, 1, or 2)', 'ERROR', true);
-        _Pause;
-      end
-      else if ((parentOID^.DotNotation='0') or (parentOID^.DotNotation='1')) and (StrToInt(sInput) > 39) then
-      begin
-        ShowMessage('Invalid numeric ID (root 0 and 1 must have sub-arc of 0..39)', 'ERROR', true);
-        _Pause;
-      end
-      else if NumIdAlreadyExisting(parentOID, sInput) then
-      begin
-        ShowMessage('This numeric ID is already used in this arc', 'ERROR', true);
+        ShowMessage('Invalid base36 ID (must be 0..9, A..Z)', 'ERROR', true);
         _Pause;
       end
       else
       begin
-        if parentOID^.DotNotation = '' then
-          oid^.DotNotation := sInput
+        if base36mode then
+          arcval := base_convert_bigint(sInput, 36, 10)
         else
-          oid^.DotNotation := parentOID^.DotNotation + '.' + sInput;
-        NumIdEditor := true; (* request caller to save <oid> *)
-        Break;
+          arcval := sInput;
+        arcval := StripLeadingZeros(arcval);
+
+        if (parentOID^.DotNotation='') and (arcval <> '0') and (arcval <> '1') and (arcval <> '2') then
+        begin
+          ShowMessage('Invalid numeric ID (root arc can only be 0, 1, or 2)', 'ERROR', true);
+          _Pause;
+        end
+        else if ((parentOID^.DotNotation='0') or (parentOID^.DotNotation='1')) and
+                ((Length(arcval)>2) or (StrToInt(arcval) > 39)) then
+        begin
+          ShowMessage('Invalid numeric ID (root 0 and 1 must have sub-arc of 0..39)', 'ERROR', true);
+          _Pause;
+        end
+        else if NumIdAlreadyExisting(parentOID, arcval) then
+        begin
+          ShowMessage('This numeric ID is already used in this arc', 'ERROR', true);
+          _Pause;
+        end
+        else
+        begin
+          if parentOID^.DotNotation = '' then
+            oid^.DotNotation := arcval
+          else
+            oid^.DotNotation := parentOID^.DotNotation + '.' + arcval;
+          NumIdEditor := true; (* request caller to save <oid> *)
+          Break;
+        end;
       end;
     end
     else
     begin
+      (* User pressed ESC *)
       Break;
     end;
   until false;
@@ -763,21 +797,18 @@ begin
 
     ClrScr;
     _DrawOidTitleBar(filename, oid);
-    DrawStatusBar(DEFAULT_STATUSBAR);
+    DrawStatusBar('');
     GotoXY(1,2);
 
-    (*if oid^.DotNotation <> '' then*)
-    begin
-      Write('Dot notation:   ');
-      WriteLnKeepX(DotNotation(oid));
-      Write('IRI notation:   ');
-      WriteLnKeepX(IriNotation(oid));
-      Write('ASN.1 notation: ');
-      WriteLnKeepX(AsnNotation(oid));
-      Write('WEID notation:  ');
-      WriteLnKeepX(WeidNotation(oid));
-      WriteLn('');
-    end;
+    Write('Dot notation:   ');
+    WriteLnKeepX(DotNotation(oid));
+    Write('ASN.1 notation: ');
+    WriteLnKeepX(AsnNotation(oid));
+    Write('OID-IRI:        ');
+    WriteLnKeepX(IriNotation(oid));
+    Write('WEID notation:  ');
+    WriteLnKeepX(WeidNotation(oid));
+    WriteLn('');
 
     if Trim(oid^.Description) <> '' then
     begin
@@ -878,7 +909,7 @@ begin
 
     if oid^.DotNotation <> '' then
     begin
-      menuIdIriEdit := ListAppend(subsel, 'View/Edit Unicode Labels');
+      menuIdIriEdit := ListAppend(subsel, 'View/Edit Unicode Labels (OID-IRI)');
       ListAppend(subfiles, '');
     end
     else menuIdIriEdit := -99;
@@ -1128,7 +1159,7 @@ begin
                     list, true, 'PREVIEW OF '+TREEVIEW_FILENAME, 2);
   (* TODO: Jump to selected OID *)
 
-  DrawStatusBar(DEFAULT_STATUSBAR);
+  DrawStatusBar('');
 
   FreeList(list);
 end;
@@ -1148,7 +1179,7 @@ begin
   rootfile := _GetRootFile(true);
   if rootfile = '' then
   begin
-    DrawStatusBar(DEFAULT_STATUSBAR);
+    DrawStatusBar('');
     Exit;
   end;
 
@@ -1161,7 +1192,7 @@ begin
     (* Can happen if disk is read-only (Runtime Error 150) *)
     ShowMessage('Cannot open '+TREEVIEW_FILENAME+' for writing.', 'ERROR', true);
     _Pause;
-    DrawStatusBar(DEFAULT_STATUSBAR);
+    DrawStatusBar('');
     Exit;
   end;
 
@@ -1176,7 +1207,7 @@ begin
 
   Close(F);
 
-  DrawStatusBar(DEFAULT_STATUSBAR);
+  DrawStatusBar('');
   if res then
   begin
     ShowMessage('TreeView successfully exported as '+TREEVIEW_FILENAME, 'TREEVIEW EXPORT', true);
@@ -1196,7 +1227,7 @@ begin
     ClrScr;
 
     DrawTitleBar('Welcome to OIDplus for DOS', '', '');
-    DrawStatusBar(DEFAULT_STATUSBAR);
+    DrawStatusBar('(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.');
     GoToXY(ScreenWidth-Length(VERSIONINFO), ScreenHeight-1);
     Write(VERSIONINFO);
 
