@@ -3,7 +3,7 @@ unit OIDFILE;
 (************************************************)
 (* OIDFILE.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-15                         *)
+(* Revision: 2022-02-19                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Functions to handle an OID ASCII format    *)
@@ -20,6 +20,7 @@ type
     FileId: string;
     DotNotation: string;
     ASNIds: PStringList;
+    UnicodeLabels: PStringList;
     Description: string;
     SubIds: PStringList; (* first 8 chars are FileId, followed by DotNotation *)
     ParentFileId: string;
@@ -39,28 +40,51 @@ function DotNotationPart(s: string): string;
 implementation
 
 uses
-  VtsFuncs, OidUtils;
+  VtsFuncs, OidUtils, Crt;
 
 const
   WANT_VERS = '2022';
 
 procedure CreateOidDef(var oid: POid);
 begin
+  oid := nil;
   GetMem(oid, SizeOf(TOID));
-  oid^.FileId := '';
-  oid^.DotNotation := '';
-  oid^.Description := '';
-  oid^.ParentFileId := '';
-  oid^.ParentDotNotation := '';
-  CreateList(oid^.ASNIds);
-  CreateList(oid^.SubIds);
+
+  if oid <> nil then
+  begin
+    oid^.FileId := '';
+    oid^.DotNotation := '';
+    oid^.Description := '';
+    oid^.ParentFileId := '';
+    oid^.ParentDotNotation := '';
+    CreateList(oid^.ASNIds);
+    CreateList(oid^.UnicodeLabels);
+    CreateList(oid^.SubIds);
+  end
+  else
+  begin
+    Beep;
+    WriteLn('CreateOidDef failed! (GetMem returned nil)');
+    ReadKey;
+  end;
 end;
 
 procedure FreeOidDef(oid: POid);
 begin
-  FreeList(oid^.ASNIds);
-  FreeList(oid^.SubIds);
-  FreeMem(oid, SizeOf(TOID));
+  if oid <> nil then
+  begin
+    FreeList(oid^.ASNIds);
+    FreeList(oid^.UnicodeLabels);
+    FreeList(oid^.SubIds);
+    FreeMem(oid, SizeOf(TOID));
+    oid := nil;
+  end
+  else
+  begin
+    Beep;
+    WriteLn('FreeOidDef failed! (Argument is nil)');
+    ReadKey;
+  end;
 end;
 
 procedure ClearOidDef(oid: POid);
@@ -71,6 +95,7 @@ begin
   oid^.ParentFileId := '';
   oid^.ParentDotNotation := '';
   ListClear(oid^.ASNIds);
+  ListClear(oid^.UnicodeLabels);
   ListClear(oid^.SubIds);
 end;
 
@@ -140,6 +165,12 @@ begin
   begin
     sTmp := ListGetElement(oid^.AsnIds, i);
     WriteLn(f, 'ASN1' + sTmp);
+  end;
+
+  for i := 0 to ListCount(oid^.UnicodeLabels)-1 do
+  begin
+    sTmp := ListGetElement(oid^.UnicodeLabels, i);
+    WriteLn(f, 'UNIL' + sTmp);
   end;
 
   desc := Trim(oid^.Description);
@@ -212,6 +243,11 @@ begin
     if cmd = 'ASN1' then
     begin
       ListAppend(oid^.ASNIds, line);
+    end;
+
+    if cmd = 'UNIL' then
+    begin
+      ListAppend(oid^.UnicodeLabels, line);
     end;
 
     if cmd = 'DESC' then

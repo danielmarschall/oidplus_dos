@@ -3,7 +3,7 @@ unit STRLIST;
 (************************************************)
 (* STRLIST.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-16                         *)
+(* Revision: 2022-02-19                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - StringList implementation for Turbo Pascal *)
@@ -194,8 +194,11 @@ var
   tmp: PStringList;
   i: integer;
 begin
-  if idx < 0 then exit;
-  if idx > ListCount(list)-1 then exit;
+ if (idx < 0) or (idx > ListCount(list)-1) then
+  begin
+    ListGetElement := '';
+    Exit;
+  end;
 
   tmp := list;
   i := 0;

@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-16                         *)
+(* Revision: 2022-02-19                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -18,10 +18,11 @@ program OIDPLUS;
 (* Instead, use the tool "TPPATCH" by Andreas Bauer.           *)
 
 uses
-  Dos, Crt, Drivers, StrList, VtsFuncs, VtsCui, OidFile, OidUtils;
+  Dos, Crt, Drivers, StrList, VtsFuncs, VtsCui, OidFile, OidUtils,
+  Weid;
 
 const
-  VERSIONINFO            = 'Revision: 2022-02-16';
+  VERSIONINFO            = 'Revision: 2022-02-19';
   DEFAULT_STATUSBAR      = '(C)2020-2022 ViaThinkSoft. Licensed under the terms of the Apache 2.0 license.';
   TITLEBAR_LEFT_TEXT     = 'OIDplus';
   DISKIO_SOUND_DEBUGGING = false;
@@ -253,6 +254,144 @@ begin
   until false;
 end;
 
+function UnicodeLabelAlreadyExisting(oid: POID; unicodeLabel: string): boolean;
+begin
+  UnicodeLabelAlreadyExisting := ListContains(oid^.UnicodeLabels, unicodeLabel);
+end;
+
+function IriEditor(oid: POID): boolean;
+var
+  iriList: PStringList;
+  i: integer;
+  x, y, w, h: integer;
+  res: integer;
+  sInput: string;
+  menuIdNew, menuIdSave, menuIdExit: integer;
+begin
+  IriEditor := false;
+
+  repeat
+    CreateList(iriList);
+
+    for i := 0 to ListCount(oid^.UnicodeLabels)-1 do
+    begin
+      ListAppend(iriList, ListGetElement(oid^.UnicodeLabels, i));
+    end;
+    menuIdNew  := ListAppend(iriList, '<NEW>');
+    menuIdSave := ListAppend(iriList, '<SAVE>');
+    menuIdExit := ListAppend(iriList, '<CANCEL>');
+
+    DrawStatusBar(DEFAULT_STATUSBAR);
+    x := SINGLE_LINE_BOX_PADDING;
+    y := ScreenHeight div 2 - ASNEDIT_LINES div 2;
+    w := ScreenWidth - (SINGLE_LINE_BOX_PADDING-1)*2;
+    h := ASNEDIT_LINES;
+    res := DrawSelectionList(x, y, w, h,
+                             iriList, true,
+                             'EDIT UNICODE LABELS',
+                             2);
+    FreeList(iriList);
+
+    (* Change double-border to thin-border *)
+    DrawThinBorder(x-1, y-1, w+2, h+2);
+    GoToXY(x+1, y-1);
+    Write('EDIT UNICODE LABELS');
+
+    if res = -1 then
+    begin
+      exit;
+    end
+    else if res = menuIdNew then
+    begin
+      (* "NEW" item was selected *)
+      sInput := '';
+      CursorOn;
+      repeat
+        if QueryVal(sInput,
+                    SINGLE_LINE_BOX_PADDING_INNER,
+                    ScreenHeight div 2,
+                    ScreenWidth - (SINGLE_LINE_BOX_PADDING_INNER-1)*2,
+                    1,
+                    'ADD SINGLE UNICODE LABEL',
+                    2) then
+        begin
+          if sInput = '' then continue;
+          if not UnicodeLabelValid(sInput) then
+          begin
+            ShowMessage('Invalid Unicode Label!', 'ERROR', true);
+            _Pause;
+          end
+          else if UnicodeLabelAlreadyExisting(oid, sInput) then
+          begin
+            ShowMessage('Unicode Label is already existing on this arc', 'ERROR', true);
+            _Pause;
+          end
+          else
+          begin
+            ListAppend(oid^.UnicodeLabels, sInput);
+            break;
+          end;
+        end
+        else break;
+      until false;
+      CursorOff;
+    end
+    else if res = menuIdSave then
+    begin
+      (* "SAVE" item was selected *)
+      IriEditor := true;
+      Exit;
+    end
+    else if res = menuIdExit then
+    begin
+      (* "CANCEL" item was selected *)
+      IriEditor := false;
+      Exit;
+    end
+    else
+    begin
+      DrawStatusBar('Note: Remove the text to delete the Unicode Label');
+      sInput := ListGetElement(oid^.UnicodeLabels, res);
+	  CursorOn;
+      repeat
+        if QueryVal(sInput,
+                    SINGLE_LINE_BOX_PADDING_INNER,
+                    ScreenHeight div 2,
+                    ScreenWidth - (SINGLE_LINE_BOX_PADDING_INNER-1)*2,
+                    1,
+                    'EDIT SINGLE UNICODE LABEL',
+                    2) then
+        begin
+          if sInput = '' then
+          begin
+            (* Empty input = Delete Unicode label *)
+            ListDeleteElementByIndex(oid^.UnicodeLabels, res);
+            break;
+          end
+          else if not UnicodeLabelValid(sInput) then
+          begin
+            ShowMessage('Invalid Unicode Label!', 'ERROR', true);
+            _Pause;
+          end
+          else if UnicodeLabelAlreadyExisting(oid, sInput) and
+              not (ListGetElement(oid^.UnicodeLabels, res) = sInput) then
+          begin
+            ShowMessage('Unicode Label is already existing on this arc', 'ERROR', true);
+            _Pause;
+          end
+          else
+          begin
+            ListSetElement(oid^.UnicodeLabels, res, sInput);
+            break;
+          end;
+        end
+        else break;
+      until false;
+	  CursorOff;
+    end;
+  until false;
+end;
+
 function DescEditor(oid: POID): boolean;
 var
   sInput: string;
@@ -395,6 +534,7 @@ begin
   newOID^.ParentDotNotation := oid^.DotNotation;
   if NumIdEditor(newOID, oid) and
      AsnEditor(newOID) and
+     IriEditor(newOID) and
      DescEditor(newOID) then
   begin
     newfilename := newOID^.FileId + OID_EXTENSION;
@@ -505,17 +645,109 @@ begin
     DrawTitleBar('OID ' + oid^.DotNotation, TITLEBAR_LEFT_TEXT, filename);
 end;
 
+function DotNotation(oid: POid): string;
+var
+  res: string;
+begin
+  res := oid^.DotNotation;
+  if res = '' then res := '.'; (* root *)
+  DotNotation := res;
+end;
+
+function OidLastArc(oid: POid): string;
+var
+  s: string;
+  p: integer;
+begin
+  s := oid^.DotNotation;
+
+  while true do
+  begin
+    p := Pos('.', s);
+    if p = 0 then break;
+    Delete(s, 1, p);
+  end;
+
+  OidLastArc := s;
+end;
+
+function AsnNotation(oid: POid): string;
+var
+  prevOid, curOid: POid;
+  res: string;
+begin
+  CreateOidDef(curOid);
+  prevOid := oid;
+  res := '';
+
+  while true do
+  begin
+    (* Note: BackRef is not checked yet! Infinite loop is possible! (TODO) *)
+    ReadOidFile(prevOid^.ParentFileId + '.OID', curOid);
+    if curOid^.ParentFileId = '' then break;
+    if curOid^.ParentFileId = curOid^.FileId then break;
+    if ListCount(curOid^.AsnIds) > 0 then
+      res := ListGetElement(curOid^.AsnIds, 0) + '('+OidLastArc(curOid)+') ' + res
+    else
+      res := OidLastArc(curOid) + ' ' + res;
+    prevOid := curOid;
+  end;
+  FreeOidDef(curOid);
+  if ListCount(oid^.AsnIds) > 0 then
+    res := res + ListGetElement(oid^.AsnIds, 0) + '('+OidLastArc(oid)+')'
+  else
+    res := res + OidLastArc(oid);
+  if res = '' then
+    AsnNotation := ''
+  else
+    AsnNotation := '{ ' + res + ' }';
+end;
+
+function IriNotation(oid: POid): string;
+var
+  prevOid, curOid: POid;
+  res: string;
+begin
+  CreateOidDef(curOid);
+  prevOid := oid;
+  res := '';
+
+  while true do
+  begin
+    (* Note: BackRef is not checked yet! Infinite loop is possible! (TODO) *)
+    ReadOidFile(prevOid^.ParentFileId + '.OID', curOid);
+    if curOid^.ParentFileId = '' then break;
+    if curOid^.ParentFileId = curOid^.FileId then break;
+    if ListCount(curOid^.UnicodeLabels) > 0 then
+      res := ListGetElement(curOid^.UnicodeLabels, 0) + '/' + res
+    else
+      res := OidLastArc(curOid) + '/' + res;
+    prevOid := curOid;
+  end;
+  FreeOidDef(curOid);
+  if ListCount(oid^.UnicodeLabels) > 0 then
+    res := res + ListGetElement(oid^.UnicodeLabels, 0)
+  else
+    res := res + OidLastArc(oid);
+  IriNotation := '/' + res;
+end;
+
+function WeidNotation(oid: POid): string;
+begin
+  WeidNotation := OidToWeid(oid^.DotNotation);
+end;
+
 procedure DisplayOIDFile(filename: string);
 var
   isRoot: boolean;
   oid, tmpOID: POID;
-  i, menuX, menuY: integer;
-  linesLeft, linesRequired: integer;
+  i: integer;
   sTmp, subfile: string;
   subsel, subfiles: PStringList;
   subselres: integer;
   exitRequest: boolean;
-  menuIdExit, menuIdAsnEdit, menuIdDescEdit, menuIdAdd, menuIdDelete: integer;
+  menuIdExit, menuIdAsnEdit, menuIdIriEdit, menuIdDescEdit, menuIdAdd, menuIdDelete: integer;
+  menuX, menuY: integer;
 begin
   exitRequest := false;
   repeat
@@ -534,49 +766,29 @@ begin
     DrawStatusBar(DEFAULT_STATUSBAR);
     GotoXY(1,2);
 
-    if oid^.DotNotation <> '' then
+    (*if oid^.DotNotation <> '' then*)
     begin
-      WriteLn('Dot-Notation:');
-      WriteLn(oid^.DotNotation);
+      Write('Dot notation:   ');
+      WriteLnKeepX(DotNotation(oid));
+      Write('IRI notation:   ');
+      WriteLnKeepX(IriNotation(oid));
+      Write('ASN.1 notation: ');
+      WriteLnKeepX(AsnNotation(oid));
+      Write('WEID notation:  ');
+      WriteLnKeepX(WeidNotation(oid));
       WriteLn('');
     end;
 
     if Trim(oid^.Description) <> '' then
     begin
-      WriteLn('Description:');
+      (* WriteLn('Description:'); *)
       WriteLn(oid^.Description);
       WriteLn('');
-    end;
-
-    menuX := WhereX + 1;
-    menuY := ScreenHeight - ACTIONMENU_SIZE - 1;
-
-    if ListCount(oid^.ASNIDs) > 0 then
+    end
+    else
     begin
-      linesLeft := menuY - WhereY - 1;
-      linesRequired := 1 + ListCount(oid^.ASNIds);
-
-      if LinesLeft < LinesRequired then
-      begin
-        (* Compact display of ASN.1 identifiers *)
-        Write('ASN.1-Identifiers: ');
-        for i := 0 to ListCount(oid^.ASNIds)-1 do
-        begin
-          if i > 0 then Write(', ');
-          Write(ListGetElement(oid^.ASNIds, i));
-        end;
-        WriteLn('');
-      end
-      else
-      begin
-        (* Long display of ASN.1 identifiers *)
-        WriteLn('ASN.1-Identifiers:');
-        for i := 0 to ListCount(oid^.ASNIds)-1 do
-        begin
-          WriteLn('- '+ListGetElement(oid^.ASNIds, i));
-        end;
-        WriteLn('');
-      end;
+      WriteLn('(No description has been added to this OID.)');
+      WriteLn('');
     end;
 
     (* Now prepare the menu entries *)
@@ -659,10 +871,17 @@ begin
 
     if oid^.DotNotation <> '' then
     begin
-      menuIdAsnEdit := ListAppend(subsel, 'Edit ASN.1 identifiers');
+      menuIdAsnEdit := ListAppend(subsel, 'View/Edit ASN.1 identifiers');
       ListAppend(subfiles, '');
     end
     else menuIdAsnEdit := -99;
+
+    if oid^.DotNotation <> '' then
+    begin
+      menuIdIriEdit := ListAppend(subsel, 'View/Edit Unicode Labels');
+      ListAppend(subfiles, '');
+    end
+    else menuIdIriEdit := -99;
 
     menuIdDescEdit := ListAppend(subsel, 'Edit description');
     ListAppend(subfiles, '');
@@ -679,6 +898,8 @@ begin
 
     (* Show menu *)
 
+    menuX := WhereX + 1;
+    menuY := ScreenHeight - ACTIONMENU_SIZE - 1;
     subselres := DrawSelectionList(menuX, menuY,
                                    ScreenWidth-2,
                                    ACTIONMENU_SIZE,
@@ -696,6 +917,11 @@ begin
     else if subselres = menuIdAsnEdit then
     begin
       if AsnEditor(oid) then
+        _WriteOidFile(filename, oid, true);
+    end
+    else if subselres = menuIdIriEdit then
+    begin
+      if IriEditor(oid) then
         _WriteOidFile(filename, oid, true);
     end
     else if subselres = menuIdDescEdit then
@@ -891,9 +1117,12 @@ procedure TreeViewPreview;
 var
   list: PStringList;
 begin
+  ClrScr;
+  DrawTitleBar('TreeView Export', TITLEBAR_LEFT_TEXT, TREEVIEW_FILENAME);
+  DrawStatusBar('Press ESC to return to the main menu');
+
   CreateList(list);
 
-  DrawStatusBar('Press ESC to return to the main menu');
   ListLoadFromFile(list, TREEVIEW_FILENAME);
   DrawSelectionList(2, 3, ScreenWidth-2, ScreenHeight-4,
                     list, true, 'PREVIEW OF '+TREEVIEW_FILENAME, 2);

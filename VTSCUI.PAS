@@ -3,7 +3,7 @@ unit VTSCUI;
 (************************************************)
 (* VTSCUI.PAS                                   *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-16                         *)
+(* Revision: 2022-02-19                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - ViaThinkSoft CUI (Console User Interface)  *)
@@ -37,6 +37,7 @@ procedure ShowMessage(msg: string; title: string; dobeep: boolean);
 procedure CursorOn;
 procedure CursorOff;
 procedure ResetDefaultDosColors;
+procedure WriteLnKeepX(s: string);
 
 implementation
 
@@ -601,6 +602,27 @@ procedure ResetDefaultDosColors;
 begin
   TextBackground(Black);
   TextColor(LightGray);
+end;
+
+procedure WriteLnKeepX(s: string);
+var
+  i: integer;
+  initX: integer;
+  bytesToWrite: integer;
+  pNewLine: integer;
+begin
+  initX := WhereX;
+  while Length(s) > 0 do
+  begin
+    pNewLine := Pos(#13#10, s);
+    GoToXy(initX, WhereY);
+    bytesToWrite := ScreenWidth - initX + 1;
+    if (pNewLine > 0) and (pNewLine < bytesToWrite) then
+      bytesToWrite := pNewLine;
+    Write(Copy(s, 1, bytesToWrite)); (* No WriteLn because there is automatic scrolling *)
+    Delete(s, 1, bytesToWrite);
+  end;
+  WriteLn('');
 end;
 
 end.

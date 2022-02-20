@@ -3,7 +3,7 @@ unit VTSFUNCS;
 (************************************************)
 (* VTSFUNCS.PAS                                 *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-16                         *)
+(* Revision: 2022-02-19                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Various functions                          *)
@@ -34,6 +34,10 @@ function StrToInt(s: string): Integer;
 function IntToStr(Value: Integer): string;
 
 function StringReplace(s, search, replace: string): string;
+
+function LastCharPos(const S: string; const Chr: char): integer;
+function LowerCase(s: string): string;
+function base_convert_bigint(numstring: string; frombase, tobase: integer): string;
 
 implementation
 
@@ -241,8 +245,16 @@ var
   i: integer;
   output: string;
 begin
-  if s = '' then exit;
-  if search = '' then exit; (* invalid arg *)
+  if s = '' then
+  begin
+    StringReplace := '';
+    Exit;
+  end;
+  if search = '' then
+  begin
+    StringReplace := s;
+    exit; (* invalid arg *)
+  end;
 
   output := '';
   while s <> '' do
@@ -260,6 +272,103 @@ begin
   end;
 
   StringReplace := output;
+end;
+
+function LastCharPos(const S: string; const Chr: char): integer;
+var
+  i: Integer;
+begin
+  for i := length(S) downto 1 do
+  begin
+    if S[i] = Chr then
+    begin
+      LastCharPos := i;
+      Exit;
+    end;
+  end;
+  LastCharPos := 0;
+  Exit;
+end;
+
+function LowerCase(s: string): string;
+var
+  res: string;
+  i: integer;
+begin
+  res := '';
+  for i := 1 to Length(s) do
+  begin
+    if s[i] in ['A'..'Z'] then
+    begin
+      res := res + Chr(Ord('a')+(Ord(s[i])-Ord('A')));
+    end
+    else
+    begin
+      res := res + s[i];
+    end;
+  end;
+  LowerCase := res;
+end;
+
+function base_convert_bigint(numstring: string; frombase, tobase: integer): string;
+var
+  i: Integer;
+  frombase_str: string;
+  tobase_str: string;
+  len: Integer;
+  number: string;
+  divide: Integer;
+  newlen: Integer;
+  res: string;
+begin
+  frombase_str := '';
+  for i := 0 to frombase-1 do
+  begin
+    if i < 10 then
+      frombase_str := frombase_str + IntToStr(i)
+    else
+      frombase_str := frombase_str + Chr(Ord('A') + (i-10));
+  end;
+
+  tobase_str := '';
+  for i := 0 to tobase-1 do
+  begin
+    if i < 10 then
+      tobase_str := tobase_str + IntToStr(i)
+    else
+      tobase_str := tobase_str + Chr(Ord('A') + (i-10));
+  end;
+
+  len := Length(numstring);
+  base_convert_bigint := '';
+  number := numstring; (* this is a fake "Int8" array (implemented with chars) *)
+  for i := 0 to len-1 do
+  begin
+    number[i+1] := Chr(Pos(UpCase(numstring[i+1]), frombase_str)-1);
+  end;
+  res := '';
+  repeat (* Loop until whole number is converted *)
+    divide := 0;
+    newlen := 0;
+    for i := 0 to len-1 do (* Perform division manually (which is why this works with big numbers) *)
+    begin
+      divide := divide * frombase + Ord(number[i+1]);
+      if (divide >= tobase) then
+      begin
+        number[newlen+1] := Chr(divide div tobase);
+        Inc(newlen);
+        divide := divide mod tobase;
+      end
+      else if newlen > 0 then
+      begin
+        number[newlen+1] := #0;
+        Inc(newlen);
+      end;
+    end;
+    len := newlen;
+    res := tobase_str[divide+1] + res; (* Divide is basically $numstring % $tobase (i.e. the new character) *)
+  until newlen = 0;
+  base_convert_bigint := res;
 end;
 
 end.
