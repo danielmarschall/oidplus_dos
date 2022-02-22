@@ -3,7 +3,7 @@ unit VTSFUNCS;
 (************************************************)
 (* VTSFUNCS.PAS                                 *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-20                         *)
+(* Revision: 2022-02-22                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Various functions                          *)
@@ -39,6 +39,7 @@ function StringReplace(s, search, replace: string): string;
 
 function LastCharPos(const S: string; const Chr: char): integer;
 function LowerCase(s: string): string;
+function UpperCase(s: string): string;
 function base_convert_bigint(numstring: string; frombase, tobase: integer): string;
 
 implementation
@@ -334,6 +335,26 @@ begin
     end;
   end;
   LowerCase := res;
+end;
+
+function UpperCase(s: string): string;
+var
+  res: string;
+  i: integer;
+begin
+  res := '';
+  for i := 1 to Length(s) do
+  begin
+    if s[i] in ['a'..'z'] then
+    begin
+      res := res + Chr(Ord('A')+(Ord(s[i])-Ord('a')));
+    end
+    else
+    begin
+      res := res + s[i];
+    end;
+  end;
+  UpperCase := res;
 end;
 
 function base_convert_bigint(numstring: string; frombase, tobase: integer): string;

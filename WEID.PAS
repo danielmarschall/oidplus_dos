@@ -3,7 +3,7 @@ unit WEID;
 (*
  * WEID<=>OID Converter for TurboPascal
  * (c) Webfan.de, ViaThinkSoft
- * Revision 2022-02-19
+ * Revision 2022-02-22
  *)
 
 (*
@@ -183,7 +183,7 @@ begin
   end;
   oidstr := Copy(oidstr, 1, Length(oidstr)-1);
 
-  weid := namespace + weid; (* add namespace again *)
+  weid := LowerCase(namespace) + UpperCase(weid); (* add namespace again *)
 
   WeidToOid := oidstr;
 end;
