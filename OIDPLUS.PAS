@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-20                         *)
+(* Revision: 2022-02-27                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -22,7 +22,7 @@ uses
   Weid;
 
 const
-  VERSIONINFO            = 'Revision: 2022-02-20';
+  VERSIONINFO            = 'Revision: 2022-02-27';
   TITLEBAR_LEFT_TEXT     = 'OIDplus';
   DISKIO_SOUND_DEBUGGING = false;
   DISKIO_SOUND_DELAY     = 500;
@@ -1099,7 +1099,7 @@ begin
   _GetTreeViewLine := sTmp;
 end;
 
-procedure _RecTreeExport(oid: POID; var F: Text; indent: integer);
+procedure _RecTreeExport(oid: POID; visList, targetList: PStringList; indent: integer);
 var
   i: integer;
   sTmp: string;
@@ -1108,7 +1108,8 @@ var
 begin
   sTmp := _GetTreeViewLine(oid, indent);
   sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
-  WriteLn(F, sTmp);
+  ListAppend(visList, sTmp);
+  ListAppend(targetList, oid^.FileID);
 
   (* Recursively call children *)
   for i := 0 to ListCount(oid^.SubIds)-1 do
@@ -1120,13 +1121,15 @@ begin
     begin
       sTmp := 'ERROR: MISSING ' + childFilename + ' (SHALL CONTAIN ' + DotNotationPart(sTmp) + ')!';
       sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
-      WriteLn(F, sTmp);
+      ListAppend(visList, sTmp);
+      ListAppend(targetList, 'ERROR');
     end
     else if not _ReadOidFile(childFilename, suboid, false) then
     begin
       sTmp := 'ERROR: READ ERROR AT ' + childFilename + ' (SHALL CONTAIN ' + DotNotationPart(sTmp) + ')!';
       sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
-      WriteLn(F, sTmp);
+      ListAppend(visList, sTmp);
+      ListAppend(targetList, 'ERROR');
     end
     else if (suboid^.ParentFileId <> oid^.FileId) or
             (suboid^.ParentDotNotation <> oid^.DotNotation) then
@@ -1134,34 +1137,51 @@ begin
       (* This can happen if a file is missing, and then another OID gets this filename since the number seems to be free *)
       sTmp := 'ERROR: BAD BACKREF AT ' + childFilename + ' (SHALL CONTAIN ' + DotNotationPart(sTmp) + ')!';
       sTmp := TrimLineToWidth(sTmp, TREEVIEW_WIDTH);
-      WriteLn(F, sTmp);
+      ListAppend(visList, sTmp);
+      ListAppend(targetList, 'ERROR');
     end
     else
     begin
-      _RecTreeExport(suboid, F, indent+1);
+      _RecTreeExport(suboid, visList, targetList, indent+1);
       FreeOidDef(suboid);
     end
   end;
 end;
 
-procedure TreeViewPreview;
+procedure TreeViewPreview(visList, targetList: PStringList);
 var
-  list: PStringList;
+  res: integer;
+  sTmp: string;
 begin
   ClrScr;
   DrawTitleBar('TreeView Export', TITLEBAR_LEFT_TEXT, TREEVIEW_FILENAME);
-  DrawStatusBar('Press ESC to return to the main menu');
+  DrawStatusBar('Press ESC to return to the main menu. Enter to jump to OID.');
 
-  CreateList(list);
-
-  ListLoadFromFile(list, TREEVIEW_FILENAME);
-  DrawSelectionList(2, 3, ScreenWidth-2, ScreenHeight-4,
-                    list, true, 'PREVIEW OF '+TREEVIEW_FILENAME, 2);
-  (* TODO: Jump to selected OID *)
+  while true do
+  begin
+    res := DrawSelectionList(2, 3, ScreenWidth-2, ScreenHeight-4,
+                             visList, true, 'PREVIEW OF '+TREEVIEW_FILENAME, 2);
+    if res > -1 then
+    begin
+      (* Jump to selected OID or show error *)
+      sTmp := ListGetElement(targetList, res);
+      if sTmp = 'ERROR' then
+      begin
+        ShowMessage(ListGetElement(visList, res), 'ERROR', true);
+        _Pause;
+      end
+      else
+      begin
+        DisplayOidFile(sTmp + '.OID');
+      end;
+    end
+    else
+    begin
+      break;
+    end;
+  end;
 
   DrawStatusBar('');
-
-  FreeList(list);
 end;
 
 procedure OP_TreeView;
@@ -1170,6 +1190,7 @@ var
   rootoid: POID;
   rootfile: string;
   res: boolean;
+  visList, targetList: PStringList;
 begin
   ClrScr;
   DrawTitleBar('TreeView Export', TITLEBAR_LEFT_TEXT, '');
@@ -1183,6 +1204,10 @@ begin
     Exit;
   end;
 
+  CreateList(visList);
+  CreateList(targetList);
+
+  (* First check if the disk is read-only *)
   Assign(F, TREEVIEW_FILENAME);
   {$I-}
   Rewrite(F);
@@ -1195,17 +1220,20 @@ begin
     DrawStatusBar('');
     Exit;
   end;
+  Close(F);
 
+  (* Now do the export *)
   res := false;
   CreateOidDef(rootoid);
   if _ReadOidFile(rootfile, rootoid, true) then
   begin
-    _RecTreeExport(rootoid, F, 0);
+    _RecTreeExport(rootoid, visList, targetList, 0);
     res := true;
   end;
   FreeOidDef(rootoid);
 
-  Close(F);
+  (* Save the list (visual part only) *)
+  ListSaveToFile(visList, TREEVIEW_FILENAME);
 
   DrawStatusBar('');
   if res then
@@ -1214,7 +1242,10 @@ begin
     _Pause;
   end;
 
-  TreeViewPreview;
+  TreeViewPreview(visList, targetList);
+
+  FreeList(visList);
+  FreeList(targetList);
 end;
 
 procedure OP_MainMenu;

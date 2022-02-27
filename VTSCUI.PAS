@@ -3,7 +3,7 @@ unit VTSCUI;
 (************************************************)
 (* VTSCUI.PAS                                   *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-19                         *)
+(* Revision: 2022-02-27                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - ViaThinkSoft CUI (Console User Interface)  *)
@@ -365,7 +365,7 @@ doAgain:
       else if sc = #$47(*POS1*) then
       begin
         itemIndex := 0;
-        iStartScope := 0;
+        iStartScope := itemIndex;
         iEndScope := iStartScope + ListHeight;
         goto doAgain;
       end
@@ -375,8 +375,25 @@ doAgain:
         iStartScope := itemIndex - Min(ListHeight,ListCount(items));
         iEndScope := itemIndex;
         goto doAgain;
+      end
+      else if sc = #$49(*PgUp*) then
+      begin
+        Dec(itemIndex, ListHeight);
+        if itemIndex < 0 then
+          itemIndex := 0;
+        iStartScope := itemIndex;
+        iEndScope := itemIndex + ListHeight;
+        goto doAgain;
+      end
+      else if sc = #$51(*PgDown*) then
+      begin
+        Inc(itemIndex, ListHeight);
+        if itemIndex > ListCount(items)-1 then
+          itemIndex := ListCount(items)-1;
+        iStartScope := itemIndex - Min(ListHeight,ListCount(items));
+        iEndScope := itemIndex;
+        goto doAgain;
       end;
-      (* TODO: Implement PgUp and PgDown keys *)
     end;
 
     if sc = #13(*Return*) then
