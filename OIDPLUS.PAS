@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-27                         *)
+(* Revision: 2022-09-26                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -22,7 +22,7 @@ uses
   Weid;
 
 const
-  VERSIONINFO            = 'Revision: 2022-02-27';
+  VERSIONINFO            = 'Revision: 2022-09-26';
   TITLEBAR_LEFT_TEXT     = 'OIDplus';
   DISKIO_SOUND_DEBUGGING = false;
   DISKIO_SOUND_DELAY     = 500;
@@ -771,7 +771,7 @@ begin
   WeidNotation := OidToWeid(oid^.DotNotation);
 end;
 
-procedure DisplayOIDFile(filename: string);
+procedure DisplayOIDFile(filename, from: string);
 var
   isRoot: boolean;
   oid, tmpOID: POID;
@@ -863,7 +863,7 @@ begin
 
     if isRoot then
     begin
-      menuIdExit := ListAppend(subsel, 'Back to main menu');
+      menuIdExit := ListAppend(subsel, 'Back to '+from);
       ListAppend(subfiles, '');
     end
     else menuIdExit := -99;
@@ -1056,7 +1056,7 @@ begin
   rootfile := _GetRootFile(true);
   if rootfile = '' then Exit;
 
-  DisplayOIDFile(rootfile);
+  DisplayOIDFile(rootfile, 'main menu');
 end;
 
 procedure OP_ReturnToMSDOS;
@@ -1172,7 +1172,7 @@ begin
       end
       else
       begin
-        DisplayOidFile(sTmp + '.OID');
+        DisplayOidFile(sTmp + '.OID', 'TreeView Export');
       end;
     end
     else
