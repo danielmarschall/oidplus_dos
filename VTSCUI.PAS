@@ -3,7 +3,7 @@ unit VTSCUI;
 (************************************************)
 (* VTSCUI.PAS                                   *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-27                         *)
+(* Revision: 2022-10-10                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - ViaThinkSoft CUI (Console User Interface)  *)
@@ -67,6 +67,7 @@ begin
   s := str;
   for i := Length(str) to len-1 do
   begin
+    if Length(s) >= 255 then break;
     s := s + c;
   end;
   FillRight := s;
@@ -458,11 +459,21 @@ begin
   begin
     if stmp[i] = #10 then
     begin
+      if Length(s) >= 255 then
+      begin
+        Beep;
+        continue;
+      end;
       s := s + stmp[i];
       continue;
     end;
 
     GoToXY(x,y);
+    if Length(s) >= 255 then
+    begin
+      Beep;
+      continue;
+    end;
     s := s + stmp[i];
     Write(stmp[i]);
     Inc(x);
@@ -547,6 +558,11 @@ begin
           Beep;
           continue;
         end;
+        if Length(s) >= 254 then
+        begin
+          Beep;
+          continue;
+        end;
         s := s + #13 + #10;
         x := initX;
         Inc(y);
@@ -565,6 +581,11 @@ begin
     else
     begin
       if (x=initX+width-1) and (y=initY+height-1) then
+      begin
+        Beep;
+        continue;
+      end;
+      if Length(s) >= 255-Length(sc)+1 then
       begin
         Beep;
         continue;

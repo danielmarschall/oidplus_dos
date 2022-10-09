@@ -2,6 +2,11 @@
 TODO:
 * (See "TODO" entries in the *.pas files)
 
+KNOWN BUGS:
+- If you write an OID description with a linebreak (very long line), then do multiple Shift+Return
+  (to make line breaks), and then press backspace, then everything is messed up
+- If you fill a description with 255 characters, then the last 4 are not getting written. why?
+
 IDEAS:
 * If you call OIDPLUS.EXE with an argument to a .OID file, then open this OID
 * TreeView: Write to StringList (avoid recursive calls) and save StringList to file
@@ -9,3 +14,5 @@ IDEAS:
 * Implement RAs
 * Implement Create/Update timestamps? (people must be able to predate it)
 * Data exchange between OIDplus for Win95 and OIDplus 2.0 ?
+* XML Export to OID-Info.com
+

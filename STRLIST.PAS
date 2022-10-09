@@ -3,7 +3,7 @@ unit STRLIST;
 (************************************************)
 (* STRLIST.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-19                         *)
+(* Revision: 2022-10-10                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - StringList implementation for Turbo Pascal *)
@@ -270,11 +270,18 @@ procedure SplitStrToList(str: string; list: PStringList; separator: string);
 var
   p: integer;
 begin
-  str := str + separator;
   repeat
     p := Pos(separator, str);
-    ListAppend(list, Copy(str, 1, p-1));
-    str := copy(str, p+Length(separator), Length(str)-p);
+    if p = 0 then
+    begin
+      ListAppend(list, str);
+      Exit;
+    end
+    else
+    begin
+      ListAppend(list, Copy(str, 1, p-1));
+      str := copy(str, p+Length(separator), Length(str)-p);
+    end;
   until str = '';
 end;
 

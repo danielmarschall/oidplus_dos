@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-09-26                         *)
+(* Revision: 2022-10-10                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -22,7 +22,7 @@ uses
   Weid;
 
 const
-  VERSIONINFO            = 'Revision: 2022-09-26';
+  VERSIONINFO            = 'Revision: 2022-10-10';
   TITLEBAR_LEFT_TEXT     = 'OIDplus';
   DISKIO_SOUND_DEBUGGING = false;
   DISKIO_SOUND_DELAY     = 500;
@@ -248,7 +248,7 @@ begin
         end
         else break;
       until false;
-	  CursorOff;
+      CursorOff;
     end;
   until false;
 end;
@@ -386,7 +386,7 @@ begin
         end
         else break;
       until false;
-	  CursorOff;
+      CursorOff;
     end;
   until false;
 end;
@@ -813,6 +813,7 @@ begin
     if Trim(oid^.Description) <> '' then
     begin
       (* WriteLn('Description:'); *)
+      (* TODO: We should avoid that this is more than 10 lines *)
       WriteLn(oid^.Description);
       WriteLn('');
     end

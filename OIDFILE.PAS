@@ -3,7 +3,7 @@ unit OIDFILE;
 (************************************************)
 (* OIDFILE.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-19                         *)
+(* Revision: 2022-10-10                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Functions to handle an OID ASCII format    *)
@@ -252,7 +252,10 @@ begin
 
     if cmd = 'DESC' then
     begin
-      oid^.Description := oid^.Description + line + #13#10;
+      if Length(oid^.Description) + Length(line) + 2 <= 255 then
+      begin
+        oid^.Description := oid^.Description + line + #13#10;
+      end;
     end;
   end;
 
