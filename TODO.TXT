@@ -2,10 +2,6 @@
 TODO:
 * (See "TODO" entries in the *.pas files)
 
-KNOWN BUGS:
-- If you fill a description with 255 characters, then save, then the last 4 are not getting written. why?
-  ... actually, sometimes also just 1 char vanishes. maybe it was something to do with the amount of CRLF?
-
 IDEAS:
 * If you call OIDPLUS.EXE with an argument to a .OID file, then open this OID
 * TreeView: Write to StringList (avoid recursive calls) and save StringList to file
