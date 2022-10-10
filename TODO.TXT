@@ -3,9 +3,8 @@ TODO:
 * (See "TODO" entries in the *.pas files)
 
 KNOWN BUGS:
-- If you write an OID description with a linebreak (very long line), then do multiple Shift+Return
-  (to make line breaks), and then press backspace, then everything is messed up
-- If you fill a description with 255 characters, then the last 4 are not getting written. why?
+- If you fill a description with 255 characters, then save, then the last 4 are not getting written. why?
+  ... actually, sometimes also just 1 char vanishes. maybe it was something to do with the amount of CRLF?
 
 IDEAS:
 * If you call OIDPLUS.EXE with an argument to a .OID file, then open this OID

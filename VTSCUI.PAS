@@ -535,9 +535,14 @@ begin
           if (s[j]=#13) or (s[j]=#10) then break;
           Dec(j);
         end;
+        if j < 0 then j := 0;
         j := Length(s)-2(*CRLF*)-j;
+        if Copy(s,Length(s),1) <> #10 then j := j + 1;
+        j := j mod width;
+
         x := initX + j;
-        s := Copy(s, 1, Length(s)-1); (* Remove #10 now. #13 will be removed below *)
+        if Copy(s,Length(s),1) = #10 then
+          s := Copy(s, 1, Length(s)-1); (* Remove #10 now. #13 will be removed below *)
       end
       else
       begin
