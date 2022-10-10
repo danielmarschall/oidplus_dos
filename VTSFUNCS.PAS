@@ -3,7 +3,7 @@ unit VTSFUNCS;
 (************************************************)
 (* VTSFUNCS.PAS                                 *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-02-22                         *)
+(* Revision: 2022-10-11                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - Various functions                          *)
@@ -32,8 +32,9 @@ function FileExists(filename: string): boolean;
 function StripLeadingZeros(s: string): string;
 function IsPositiveIntegerOrZero(s: string): boolean;
 function IsBase36String(s: string): boolean;
-function StrToInt(s: string): Integer;
-function IntToStr(Value: Integer): string;
+function TryStrToInt(s: string; var i: LongInt): boolean;
+function StrToInt(s: string): LongInt;
+function IntToStr(Value: LongInt): string;
 
 function StringReplace(s, search, replace: string): string;
 
@@ -251,7 +252,20 @@ begin
   IsBase36String := true;
 end;
 
-function StrToInt(s: string): Integer;
+function TryStrToInt(s: string; var i: LongInt): boolean;
+begin
+  if IsPositiveIntegerOrZero(s) then
+  begin
+    TryStrToInt := true;
+    i := StrToInt(s);
+  end
+  else
+  begin
+    TryStrToInt := false;
+  end;
+end;
+
+function StrToInt(s: string): LongInt;
 var
   i, Error: Integer;
 begin
@@ -259,7 +273,7 @@ begin
   StrToInt := i;
 end;
 
-function IntToStr(Value: Integer): string;
+function IntToStr(Value: LongInt): string;
 var
   s: string;
 begin

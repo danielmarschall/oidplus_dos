@@ -3,7 +3,7 @@ program OIDPLUS;
 (************************************************)
 (* OIDPLUS.PAS                                  *)
 (* Author:   Daniel Marschall                   *)
-(* Revision: 2022-10-10                         *)
+(* Revision: 2022-10-11                         *)
 (* License:  Apache 2.0                         *)
 (* This file contains:                          *)
 (* - "OIDplus for DOS" program                  *)
@@ -417,29 +417,22 @@ end;
 function NextPossibleFileID: string;
 var
   DirInfo: SearchRec;
-  list: PStringList;
-  iId: LongInt;
+  iId, imax: LongInt;
   sId: string;
 begin
-  (* Put all found files into a list *)
-  CreateList(list);
   FindFirst(RepeatStr('?',8)+OID_EXTENSION, Archive, DirInfo);
+  imax := -1;
   while DosError = 0 do
   begin
     sId := Copy(DirInfo.Name, 1, 8);
-    ListAppend(list, sId);
+    if IsPositiveIntegerOrZero(sId) then
+    begin
+      iId := StrToInt(sId);
+      if iId > iMax then iMax := iId;
+    end;
     FindNext(DirInfo);
   end;
-
-  (* Search for the first non existing item in the list *)
-  sId := '';
-  for iId := 0 to 99999999 do
-  begin
-    sId := ZeroPad(iId, 8);
-    if not ListContains(list, sId) then break;
-  end;
-  NextPossibleFileId := sId;
-  FreeList(list);
+  NextPossibleFileId := ZeroPad(iMax+1, 8);
 end;
 
 function NumIdAlreadyExisting(parentOID: POID; arcval: string): boolean;
