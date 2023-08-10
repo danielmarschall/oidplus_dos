@@ -3,28 +3,41 @@ unit WEID_Delphi;
 (*
  * WEID<=>OID Converter for Delphi
  * (c) Webfan.de, ViaThinkSoft
- * Revision 2022-02-22
+ * Revision 2023-08-10
  *)
 
 (*
-  What is a WEID?
-    A WEID (WEhowski IDentifier) is an alternative representation of an
-     OID (Object IDentifier) defined by Till Wehowski.
-     In OIDs, arcs are in decimal base 10. In WEIDs, the arcs are in base 36.
-     Also, each WEID has a check digit at the end (called WeLohn Check Digit).
-
-  Changes in the December 2021 definition by Daniel Marschall:
-     - There are several classes of WEIDs which have different OID bases:
-           "Class C" WEID:  weid:EXAMPLE-3      (base .1.3.6.1.4.1.37553.8.)
-                            oid:1.3.6.1.4.1.37553.8.32488192274
-           "Class B" WEID:  weid:pen:SX0-7PR-6  (base .1.3.6.1.4.1.)
-                            oid:1.3.6.1.4.1.37476.9999
-           "Class A" WEID:  weid:root:2-RR-2    (base .)
-                            oid:2.999
-     - The namespace (weid:, weid:pen:, weid:root:) is now case insensitive.
-     - Padding with '0' characters is valid (e.g. weid:000EXAMPLE-3)
-       The paddings do not count into the WeLuhn check-digit.
-*)
+ * What is a WEID?
+ *     A WEID (WEhowski IDentifier) is an alternative representation of an
+ *     OID (Object IDentifier) defined by Till Wehowski.
+ *     In OIDs, arcs are in decimal base 10. In WEIDs, the arcs are in base 36.
+ *     Also, each WEID has a check digit at the end (called WeLuhn Check Digit).
+ *
+ * The full specification can be found here: https://weid.info/spec.html
+ *
+ * This converter supports WEID as of Spec Change #11
+ *
+ * A few short notes:
+ *     - There are several classes of WEIDs which have different OID bases:
+ *           "Class A" WEID:  weid:root:2-RR-?
+ *                            oid:2.999
+ *                            WEID class base OID: (OID Root)
+ *           "Class B" WEID:  weid:pen:SX0-7PR-?
+ *                            oid:1.3.6.1.4.1.37476.9999
+ *                            WEID class base OID: 1.3.6.1.4.1
+ *           "Class C" WEID:  weid:EXAMPLE-?
+ *                            oid:1.3.6.1.4.1.37553.8.32488192274
+ *                            WEID class base OID: 1.3.6.1.4.1.37553.8
+ *           "Class D" WEID:  weid:example.com:TEST-? is equal to weid:9-DNS-COM-EXAMPLE-TEST-?
+ *                            Since the check digit is based on the OID, the check digit is equal for both notations.
+ *                            oid:1.3.6.1.4.1.37553.8.9.17704.32488192274.16438.1372205
+ *                            WEID class base OID: 1.3.6.1.4.1.37553.8.9.17704
+ *     - The last arc in a WEID is the check digit. A question mark is the wildcard for an unknown check digit.
+ *       In this case, the converter will return the correct expected check digit for the input.
+ *     - The namespace (weid:, weid:pen:, weid:root:) is case insensitive.
+ *     - Padding with '0' characters is valid (e.g. weid:000EXAMPLE-3)
+ *       The paddings do not count into the WeLuhn check digit.
+ *)
 
 interface
 
@@ -195,13 +208,56 @@ var
   complete: string;
   oidstr: string;
   arc: string;
+  domainpart: string;
+  tmp: string;
 begin
   p := LastCharPos(weid,':');
   namespace := Copy(weid, 1, p);
   rest := Copy(weid, p+1, Length(weid)-p);
 
   namespace := LowerCase(namespace); (* namespace is case insensitive *)
-  if namespace = 'weid:' then
+
+  if Copy(namespace, 1, 5) = 'weid:' then
+  begin
+    tmp := Copy(namespace, 1, Length(namespace)-1);
+    p := Pos(':', tmp, 5);
+    Delete(tmp, 1, p);
+    if pos('.', tmp) > 0 then
+    begin
+      (* Spec Change 10: Class D / Domain-WEID *)
+      if pos(':', tmp) > 0 then
+      begin
+        result := '';
+        exit;
+      end;
+      domainpart := '';
+      while tmp <> '' do
+      begin
+        p := Pos('.', tmp);
+        if p = 0 then
+        begin
+          domainpart := tmp + '-' + domainpart;
+          break;
+        end
+        else
+        begin
+          domainpart := Copy(tmp, 1, p-1) + '-' + domainpart;
+          Delete(tmp, 1, p);
+        end;
+      end;
+      weid := 'weid:9-DNS-' + UpperCase(Domainpart) + Rest;
+      result := WeidToOid(weid);
+      exit;
+    end;
+  end;
+
+  if Copy(namespace, 1, 7) = 'weid:x-' then
+  begin
+  	(* Spec Change 11: Proprietary Namespaces *)
+    result := '[Proprietary WEID Namespace]';
+    Exit;
+  end
+  else if namespace = 'weid:' then
   begin
     (* Class C *)
     base := '1-3-6-1-4-1-SZ5-8';
